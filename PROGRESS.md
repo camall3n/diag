@@ -441,3 +441,48 @@ Claude Code appends here after every meaningful step. The Claude app session rea
     The members form a cooperating clique and defect on everyone else, as Theorems A and B predict. StingyBot's row shows a non-member's behaviour depending on certificate size: it rejects CertBot's old 157k-fuel certificate under its F/2 budget and accepts the newer ones. That is harmless, because Theorem B protects only members.
   - **A limitation found while choosing test members.** I wanted a member with the branches swapped, `if eq(check(…), false) then D else C`. S can't certify it yet. From `¬(chk = true)` it can't derive `chk = false`, because S has no axiom saying `check` returns a boolean. A small sound rule would fix this (`boolCases`: `check(…) = true ∨ check(…) = false`, true because `Tm.denote` of `check` is `Val.ofBool …`). It's worth adding before M6, so that LLM-written members can use negated tests. I'm not adding it without a nod.
   - I haven't built the named-variable front end yet. It isn't needed for these members, because the generator is a Lean function. I'll build it at the start of M6, where the LLM writes certificates.
+
+- [K′ plan, for FROM_APP #8, Handled FROM_APP #8 (plan only; implementation waits for review)] **The one-way standard K′, added next to K, with nothing about K changed.** It will be built by the same `diag` construction, in new files `Diag/StandardP.lean` and `Diag/TheoremsP.lean`, and the tournament will be extended.
+  - **Definition.** `D′` has loose variables w = 2 and z = 3 inside the two binders, as `Dfm` does:
+    ```lean
+    def DfmP : Fm := .all (.all (.imp (boundFm (b 1) L) (.imp (boundFm (b 0) Kmax)
+      (.imp (.eq (.op3 .check (b 0) (.op2 .subst (.op2 .subst (b 2) (b 2)) (b 1)) (natT F)) truT)
+            (.eq (.run (natT T) (b 3) (Tm.list [b 1, b 0])) (.lit C))))))
+    def KP : Fm := DfmP.inst (.lit DfmP.quote)
+    def memberP (c : Val) : Fm := KP.inst (.lit c)
+    theorem diagP_eval : substV DfmP.quote DfmP.quote = KP.quote
+    theorem memberP_denote (c : Val) (ρ : Nat → Val) :
+        (memberP c).denote ρ ↔ ∀ y κ : Val, y.sz ≤ L → κ.sz ≤ Kmax →
+          check F κ (memberP y).quote = true → (run T c [y, κ]).getD Val.bot = C
+    ```
+  - **A′.** `def CertifiedP (e : Entry) : Prop := check F e.cert (memberP e.code).quote = true`
+    ```lean
+    theorem theoremA' (a b : Entry) (ha : a.ok = true) (hb : b.ok = true)
+        (hca : CertifiedP a) (hcb : CertifiedP b) : play T a b = (.C, .C)
+    ```
+  - **B′ ⚑, which I propose to state both ways.** First a semantic version, then a *certified* version that is checkable, and so suitable for the paper.
+    The semantic version: "cautious" is a plain Lean hypothesis about a's code.
+    ```lean
+    def Cautious (c : Val) : Prop := ∀ y κ : Val, y.sz ≤ L → κ.sz ≤ Kmax →
+      (run T c [y, κ]).getD Val.bot = C → check F κ (memberP y).quote = true
+    theorem theoremB'_sem (a b : Entry) (hca : CertifiedP a) (hc : Cautious a.code)
+        (h : (play T a b).1 = .C) : (play T a b).2 = .C
+    ```
+    The certified version: cautiousness is itself certified, against a formula `KC` built with `diag` *on K′'s code* (not on its own code):
+    `KC(z) :≡ ∀y ∀κ. bounds → (run(T, z, [y, κ]) = C ↔ check(F, κ, subst(⌜K′⌝, y)) = true)`.
+    Its ← direction is exactly K′(z), and its → direction is exactly `Cautious z`. So one certificate for `KC(a)` gives both, via `check_sound`.
+    ```lean
+    theorem theoremB' (a b : Entry) (κc : Val) (hc : check F κc (memberC a.code).quote = true)
+        (hca : CertifiedP a) (h : (play T a b).1 = .C) : (play T a b).2 = .C
+    ```
+    Here a cautious entry carries its K′ certificate (which others check at play time), and κc is checked offline as evidence for the theorem. I prefer keeping `Entry` with one certificate, so κc stays outside the game. CertBot′'s κc is essentially the K-style certificate (`memberCert` adapted to ⌜K′⌝). **Do you want both, or only the certified version?**
+  - **Inclusiveness.** CooperateBot's K′ certificate is about 7 steps: allI×2, impI×3, then `symRun` gives run = C directly, with no `eval` of δ′ needed. I expect it to be well under 1k in size. `CertBot′` is `main = if check(cert, subst(⌜K′⌝, opp), F) then C else D`. Its K′ certificate is `impI (chk = true)` → rw/`eval` ⌜K′⌝ = δ′ → `iteT` with `symRun`.
+    Planned tournament rows:
+    - K′: CertBot′ vs CooperateBot is (C, C).
+    - K: CertBot vs CooperateBot stays (D, C), already shown.
+    - K′: DefectBot is not certifiable under K′ (`symRun` gives run = D), so CertBot′ defects against it.
+  - **Cross-standard.** In CertBot vs CertBot′, each checks the other's certificate against *its own* standard. A K certificate isn't a proof of K′(·), and vice versa, so I expect (D, D). I'll run it and record it as the **bridging open question**. For example, an entry could carry one certificate per standard (`Entry` with a list of certificates), or a member could accept "certified under K or under K′". But that changes what the standards say and needs its own theorems.
+  - `#print axioms` for `memberP_denote`, `theoremA'`, `theoremB'_sem` and `theoremB'`, expecting the standard three.
+  - Also queued, pending a nod: the `boolCases` rule (previous entry), before M6.
+
+  [REVIEW] awaiting FROM_APP #9
