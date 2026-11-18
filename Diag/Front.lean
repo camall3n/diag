@@ -219,6 +219,10 @@ partial def compilePf (vs hs : List String) (self : Val) : SX → Except String 
   | .list [.atom "bool-cases", t, p, q] =>
     return .boolCases (← compileTm vs self t) (← compilePf vs hs self p) (← compilePf vs hs self q)
   | .list [.atom "trivial"] => .ok topPf
+  | .list [.atom "val-ind", .atom x, m, p, q] =>
+    return .valInd (← compileFm (x :: vs) self m) (← compilePf vs hs self p) (← compilePf vs hs self q)
+  | .list [.atom "nat-ind", .atom x, m, p, q] =>
+    return .natInd (← compileFm (x :: vs) self m) (← compilePf vs hs self p) (← compilePf vs hs self q)
   | .list [.atom "sym-run", f, code, .list args] => do
     let f ← natConst f
     let code ← match ← compileTm vs self code with
@@ -258,13 +262,15 @@ def ruleName : Proof → String
   | .allI _ => "forall-intro" | .allE _ _ => "forall-elim" | .refl _ => "refl"
   | .rw _ _ _ => "rw" | .iteT _ _ _ => "ite-t" | .iteF _ _ _ => "ite-f" | .eval _ _ => "eval"
   | .evalNe _ _ => "eval-ne" | .symRun _ _ _ _ => "sym-run" | .boolCases _ _ _ => "bool-cases"
+  | .valInd _ _ _ => "val-ind" | .natInd _ _ _ => "nat-ind"
 
 def bigFuel : Nat := 2 ^ 30
 
 def children (Γ : List Fm) : Proof → List (List Fm × Proof)
   | .impI a q => [(a :: Γ, q)]
   | .allI q => [(Γ.map (Fm.shift 1 0), q)]
-  | .impE q r | .andI q r | .rw _ q r | .boolCases _ q r => [(Γ, q), (Γ, r)]
+  | .impE q r | .andI q r | .rw _ q r | .boolCases _ q r | .valInd _ q r | .natInd _ q r =>
+    [(Γ, q), (Γ, r)]
   | .andL q | .andR q | .exfalso _ q | .dne q | .allE q _ | .iteT _ _ q | .iteF _ _ q
   | .symRun _ _ _ q => [(Γ, q)]
   | _ => []

@@ -728,3 +728,45 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   - **Item 2.** Confirmed. "CertBot's certificate checks" and exclusivity's `hco` are established only by `#eval` (compiled code). The theorems themselves are conditional on those checks (`Certified a`, `hco`), so they're kernel-checked as stated. But the *concrete* (C, C) outcome trusts the compiler. The cause is the M2 finding: `decide` can't evaluate `check`, because it's defined by well-founded recursion. If we want kernel-checked outcomes, the route is a structurally recursive (fuel-indexed) `check`/`run`, or a kernel-reducible twin proved equal to them. That's a sizeable refactor of the mutual block; it was deferred in #6.
   - **Item 9.** Accurate. The M6 generator was Claude Code itself, which `m6/REPORT.md` and the M6 entry say ("generator: Claude Code"). An independent model needs the API backend, and that waits for the user's approval of a key and credits.
   - **Items 3–8** are prose claims that I didn't make in code. I have nothing to add.
+
+- [Hook slip, my fault] The stop hook didn't announce the app's reply on option (b) because my previous entry mentioned that reply's number on the same line as a "Handled" marker. The hook counts every number on such a line as handled. From now on I keep other item numbers off "Handled" lines.
+
+- [M8b go-ahead received, Handled FROM_APP #16] The user chose (b). Both induction rules, the staging and fuel monotonicity are approved. The target is a concrete `Setting` in S for all φ, with `hB`, `hShort` and `hSound` proved, and explicit polynomials p and q.
+
+- [M8b-1 done] **Two induction rules, proved sound.** The clean build has 0 warnings, all existing tests and tournaments are unchanged, and every `#print axioms` is still the standard three only.
+  ```lean
+  def Fm.instKeep (M : Fm) (t : Tm) : Fm := (M.shift 1 1).inst t      -- put t in the hole of M, under a binder
+  def Fm.valIndBase (M : Fm) : Fm := .all (.imp (.eq (.op1 .isPair (.bvar 0)) (.lit Val.fls)) M)
+  def Fm.valIndStep (M : Fm) : Fm :=
+    .all (.imp (.eq (.op1 .isPair (.bvar 0)) (.lit Val.tru))
+      (.imp (M.instKeep (.op1 .fst (.bvar 0))) (.imp (M.instKeep (.op1 .snd (.bvar 0))) M)))
+  def Fm.isNatFm : Fm := .eq (.op1 .isNat (.bvar 0)) (.lit Val.tru)
+  def Fm.natIndStep (M : Fm) : Fm :=
+    .all (.imp isNatFm (.imp M (M.instKeep (.op2 .plus (.bvar 0) (.lit (.nat 1))))))
+  | valInd : Fm → Proof → Proof → Proof   -- p ⊢ valIndBase M,  q ⊢ valIndStep M        ⟹  ∀x. M(x)
+  | natInd : Fm → Proof → Proof → Proof   -- p ⊢ M(0),          q ⊢ natIndStep M        ⟹  ∀x. isNat(x) = true → M(x)
+  theorem Fm.denote_instKeep (M : Fm) (t : Tm) (v : Val) (ρ : Nat → Val) :
+      (M.instKeep t).denote (Asg.cons v ρ) ↔ M.denote (Asg.cons (t.denote (Asg.cons v ρ)) ρ)
+  ```
+  - **Soundness.** `infer_sound` has two new cases, proved by structural induction on `Val` and by induction on `Nat`. Neither rule mentions `check`, so `infer_sound` still never needs `check_sound`.
+  - **Front end.** `(val-ind x M P Q)` and `(nat-ind x M P Q)` in `Diag/Front.lean`.
+  - **Tests** (`Diag/InductionToys.lean`): both rules accept their proofs, and three forgeries are rejected (wrong premise, missing `isNat` guard, mismatched motive).
+  - **Honest limit:** S can't yet derive facts about operations on *variables* (for example `isNat(plus(x, 1))`). So until M8b-2, the demos are rule-shape tests rather than interesting lemmas.
+
+- [M8b design fork, for review before M8b-2] Working out what "for all φ, `hB` and `hShort` proved" needs, I found four points that the approved plan didn't settle:
+  1. **⚑ The value cap V is fixed inside the trusted interpreter.** `spendOp` fails when a result exceeds `Params.V = 2^20`. An n-variable assignment, and φ itself under any operation, needs size ≥ n. So with a fixed V, B_φ fails for large φ *whatever the fuel*, and (i) can't hold for all φ. There are two options:
+     - **(A, recommended)** Drop the cap and charge every operation its result's size in fuel (`c + v.sz`). That keeps the key property, work ≤ fuel, even against shared-value blowup, because building a big value now costs fuel in proportion to its size. It's a change to the trusted core: `spendOp`, `symOp`/`symEval` bounds, `evalTm`, and the M3 proofs that mention V (`SymOp`, `SymEval`, `EvalTm`). The fuel numbers shift, and certificates and tests would be re-run.
+     - **(B)** Make V a parameter of `eval`/`run`/`check`. Then S's `run`/`check` symbols also need V, which is messier.
+  2. **The `Params` refactor isn't needed for the `Setting` instance.** That instance defines its own `outcome a b := toMove (run (fuel(|a|, |b|)) a b …)` with the one `run`, and doesn't use K, K′, L or Kmax. T, F, L and Kmax only parametrize K and K′. ⚑ Should I still do it (wide but mechanical), or skip it?
+  3. **Proving `hShort` is a Lean proof about `check` running on a *parametric* certificate.** For every satisfiable φ, `check (q(|B_φ|)) κ_φ ⌜B_φ cooperates⌝ = true`. `check` is defined by well-founded recursion, so even the fixed part (the general search lemma's S-proof) can't be `decide`d. ⚑ Two options:
+     - **(i)** A library of per-rule "infer equations" with explicit fuel, used to step through the proof.
+     - **(ii)** A kernel-reducible twin of `check` (structural recursion on fuel), proved equal to it. That also resolves audit item 2 (concrete outcomes trusting the compiler).
+
+     I lean to (i) for M8b, with (ii) as a separate item.
+  4. **`hB` is a Lean verification of the DSL program B_φ under `run`**, with an explicit exponential fuel: correctness of a search program, by induction over `eval`.
+
+  Separately, the S-side general lemma ("the search returns C if a satisfying assignment exists") needs all of M8b-2: a `call` term, one-step unfolding, and fuel monotonicity. It will also need composing fuel bounds (f₁ ≤ g₁ ∧ f₂ ≤ g₂ ⇒ f₁ + f₂ ≤ g₁ + g₂). Fuel monotonicity plus bounds written as DSL functions may cover that; if not, a small sound arithmetic rule is needed.
+
+  **Scope estimate:** this is the largest milestone so far, several times M3, and it will span several sessions. **Requested decisions:** 1 (A or B), 2 (refactor or skip), and 3 ((i) or (ii)), plus an acknowledgement of the scope.
+
+  [REVIEW] awaiting FROM_APP #17

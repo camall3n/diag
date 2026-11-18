@@ -79,6 +79,19 @@ theorem Tm.isBool_denote : ∀ (t : Tm), t.isBool = true → ∀ ρ : Nat → Va
   | .op3 .minus _ _ _, h, _ | .op3 .lt _ _ _, h, _ | .op3 .sz _ _ _, h, _
   | .op3 .subst _ _ _, h, _ => by simp [Tm.isBool] at h
 
+/-- `instKeep` in the semantics: put `t` (evaluated under the binder) in the hole. -/
+theorem Fm.denote_instKeep (M : Fm) (t : Tm) (v : Val) (ρ : Nat → Val) :
+    (M.instKeep t).denote (Asg.cons v ρ) ↔ M.denote (Asg.cons (t.denote (Asg.cons v ρ)) ρ) := by
+  unfold Fm.instKeep
+  rw [Fm.denote_inst, Fm.denote_shift]
+  have : shiftAsg (Asg.cons (t.denote (Asg.cons v ρ)) (Asg.cons v ρ)) 1 1 =
+      Asg.cons (t.denote (Asg.cons v ρ)) ρ := by
+    funext i
+    cases i with
+    | zero => simp [shiftAsg, Asg.cons]
+    | succ i => simp [shiftAsg, Asg.cons]
+  rw [this]
+
 theorem infer_sound : ∀ (n : Nat) (Γ : List Fm) (pr : Proof) (φ : Fm) (rest : Fin n),
     infer n Γ pr = some (φ, rest) → ∀ ρ : Nat → Val, (∀ ψ ∈ Γ, ψ.denote ρ) → φ.denote ρ := by
   intro n
@@ -265,6 +278,61 @@ theorem infer_sound : ∀ (n : Nat) (Γ : List Fm) (pr : Proof) (φ : Fm) (rest 
         rw [evalTm_sound _ t v m ht ρ, evalTm_sound _ u w k hu ρ]
         exact hc.2
       · contradiction
+    · contradiction
+  | valInd M q r =>
+    rw [infer] at h
+    split at h; · contradiction
+    rename_i φ m hq
+    split at h; · contradiction
+    rename_i ψ k hr
+    dsimp only at h
+    split at h
+    · rename_i hc
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      obtain ⟨-, rfl, rfl⟩ := hc
+      have hb := ih n (by omega) Γ q _ m hq ρ hΓ
+      have hs := ih m.val (by omega) Γ r _ k hr ρ hΓ
+      simp only [Fm.valIndBase, Fm.valIndStep, Fm.denote] at hb hs
+      simp only [Fm.denote]
+      intro v
+      induction v with
+      | nat n' => exact hb _ (by simp [Tm.denote, Op.applyPure, Asg.cons, Val.ofBool])
+      | sym s' => exact hb _ (by simp [Tm.denote, Op.applyPure, Asg.cons, Val.ofBool])
+      | pair a b' iha ihb =>
+        refine hs _ (by simp [Tm.denote, Op.applyPure, Asg.cons, Val.ofBool]) ?_ ?_
+        · rw [Fm.denote_instKeep]; simpa [Tm.denote, Op.applyPure, Asg.cons] using iha
+        · rw [Fm.denote_instKeep]; simpa [Tm.denote, Op.applyPure, Asg.cons] using ihb
+    · contradiction
+  | natInd M q r =>
+    rw [infer] at h
+    split at h; · contradiction
+    rename_i φ m hq
+    split at h; · contradiction
+    rename_i ψ k hr
+    dsimp only at h
+    split at h
+    · rename_i hc
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      obtain ⟨-, rfl, rfl⟩ := hc
+      have h0 := ih n (by omega) Γ q _ m hq ρ hΓ
+      have hs := ih m.val (by omega) Γ r _ k hr ρ hΓ
+      rw [Fm.denote_inst] at h0
+      simp only [Fm.natIndStep, Fm.isNatFm, Fm.denote] at hs
+      simp only [Fm.isNatFm, Fm.denote]
+      intro v hv
+      cases v with
+      | sym _ | pair _ _ =>
+        simp [Tm.denote, Op.applyPure, Asg.cons, Val.ofBool, Val.tru, Val.fls] at hv
+      | nat n' =>
+        induction n' with
+        | zero => simpa [Tm.denote] using h0
+        | succ j ihj =>
+          have := hs (.nat j) (by simp [Tm.denote, Op.applyPure, Asg.cons, Val.ofBool])
+            (ihj (by simp [Tm.denote, Op.applyPure, Asg.cons, Val.ofBool]))
+          rw [Fm.denote_instKeep] at this
+          simpa [Tm.denote, Op.applyPure, Asg.cons, Val.toNat] using this
     · contradiction
   | boolCases t q r =>
     rw [infer] at h

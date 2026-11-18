@@ -25,3 +25,4 @@ import Diag.TournamentP
 import Diag.Front
 import Diag.Exclusivity
 import Diag.Necessity
+import Diag.InductionToys

@@ -138,6 +138,27 @@ def occ (k : Nat) : Fm → Nat
   | .and a b => a.occ k + b.occ k
   | .all a => a.occ (k + 1)
 
+/-- `M` has its hole at variable 0, and the other loose variables are the context. Under a
+fresh binder x (variable 0, context at 1…), `M.instKeep t` puts `t` in the hole and keeps
+the context variables where they are. -/
+def instKeep (M : Fm) (t : Tm) : Fm := (M.shift 1 1).inst t
+
+/-- Base premise of `valInd`: `∀x. isPair(x) = false → M(x)`. -/
+def valIndBase (M : Fm) : Fm :=
+  .all (.imp (.eq (.op1 .isPair (.bvar 0)) (.lit Val.fls)) M)
+
+/-- Step premise of `valInd`: `∀x. isPair(x) = true → M(fst x) → M(snd x) → M(x)`. -/
+def valIndStep (M : Fm) : Fm :=
+  .all (.imp (.eq (.op1 .isPair (.bvar 0)) (.lit Val.tru))
+    (.imp (M.instKeep (.op1 .fst (.bvar 0))) (.imp (M.instKeep (.op1 .snd (.bvar 0))) M)))
+
+/-- `isNat(x) = true`, with x = variable 0. -/
+def isNatFm : Fm := .eq (.op1 .isNat (.bvar 0)) (.lit Val.tru)
+
+/-- Step premise of `natInd`: `∀x. isNat(x) = true → M(x) → M(x + 1)`. -/
+def natIndStep (M : Fm) : Fm :=
+  .all (.imp isNatFm (.imp M (M.instKeep (.op2 .plus (.bvar 0) (.lit (.nat 1))))))
+
 end Fm
 
 /-! ## Proofs
@@ -169,6 +190,12 @@ inductive Proof where
   /-- `boolCases t p q`: if `p` proves `t = true → φ` and `q` proves `t = false → φ`, then φ.
   Allowed only when `t.isBool`: its head operation always yields a boolean (FROM_APP #9). -/
   | boolCases : Tm → Proof → Proof → Proof
+  /-- `valInd M p q`: structural induction over values. From `p ⊢ Fm.valIndBase M` and
+  `q ⊢ Fm.valIndStep M`, infer `∀x. M(x)`. `M` has its hole at variable 0. (M8b-1) -/
+  | valInd : Fm → Proof → Proof → Proof
+  /-- `natInd M p q`: induction over naturals. From `p ⊢ M(0)` and `q ⊢ Fm.natIndStep M`,
+  infer `∀x. isNat(x) = true → M(x)`. (M8b-1) -/
+  | natInd : Fm → Proof → Proof → Proof
 deriving Repr
 
 /-- `sz t < B + 1`, as an S formula. -/
@@ -303,6 +330,8 @@ def Proof.quote : Proof → Val
   | .evalNe t u => ofList [.sym "evalNe", t.quote, u.quote]
   | .symRun f c args p => ofList [.sym "symRun", .nat f, c, tmNatList args, p.quote]
   | .boolCases t p q => ofList [.sym "boolCases", t.quote, p.quote, q.quote]
+  | .valInd m p q => ofList [.sym "valInd", m.quote, p.quote, q.quote]
+  | .natInd m p q => ofList [.sym "natInd", m.quote, p.quote, q.quote]
 
 def Proof.decode? : Val → Option Proof
   | .pair (.sym "hyp") (.pair (.nat i) (.sym "nil")) => some (.hyp i)
@@ -358,6 +387,14 @@ def Proof.decode? : Val → Option Proof
   | .pair (.sym "boolCases") (.pair t (.pair p (.pair q (.sym "nil")))) =>
       match Tm.decode? t, Proof.decode? p, Proof.decode? q with
       | some t, some p, some q => some (.boolCases t p q)
+      | _, _, _ => none
+  | .pair (.sym "valInd") (.pair m (.pair p (.pair q (.sym "nil")))) =>
+      match Fm.decode? m, Proof.decode? p, Proof.decode? q with
+      | some m, some p, some q => some (.valInd m p q)
+      | _, _, _ => none
+  | .pair (.sym "natInd") (.pair m (.pair p (.pair q (.sym "nil")))) =>
+      match Fm.decode? m, Proof.decode? p, Proof.decode? q with
+      | some m, some p, some q => some (.natInd m p q)
       | _, _, _ => none
   | _ => none
 

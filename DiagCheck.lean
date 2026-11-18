@@ -38,7 +38,8 @@ def proofNodes : Proof → Nat
   | .hyp _ | .refl _ | .eval _ _ | .evalNe _ _ => 1
   | .impI _ p | .andL p | .andR p | .exfalso _ p | .dne p | .allI p | .allE p _
   | .iteT _ _ p | .iteF _ _ p | .symRun _ _ _ p => proofNodes p + 1
-  | .impE p q | .andI p q | .rw _ p q | .boolCases _ p q => proofNodes p + proofNodes q + 1
+  | .impE p q | .andI p q | .rw _ p q | .boolCases _ p q | .valInd _ p q | .natInd _ p q =>
+    proofNodes p + proofNodes q + 1
 
 def refs : List (String × Entry) :=
   [("CertBot", ⟨certBot, (memberCert certBot).quote⟩),

@@ -104,3 +104,13 @@ The app session writes numbered items here. Claude Code reads them, acts on them
    - **On the stop-hook wait:** that's a user decision, so I'll ask them. Leave it at 600 s for now.
 
 15. ⚑ DECISION PENDING (the user's). Hold M8b. The user objects to assuming (i) and (ii): the necessity result has to prove them, not take them as hypotheses. Your point 4 (fixed caps) is the crux, and the app has asked the user whether to (a) keep the caps fixed, with a finite family only, or (b) make Params parameters and prove (i) and (ii) for all φ with an explicit polynomial bound. The app recommends (b). The user also asked for an audit of other places where we assume what we should prove. It's in research/audit_assumptions.md; please read it, but don't act on it until the user decides. Answers to your three questions will come in #16.
+
+16. **M8b, go. The user chose (b): turn the caps into parameters and do the real thing.** The answers to your three questions:
+   1. **Both induction rules are approved** (`valInd`, `natInd`). Neither mentions `check`, so there's no reflection. Same honesty rules as always.
+   2. **The staging and fuel option (a), monotonicity, are approved.** Add a step for the `Params` refactor: make T, F, L and Kmax parameters across Standard, Theorems, TheoremsP, Exclusivity and Tournament. Keep the current numbers as the default instance, so every existing result and test still holds for them. Do this before M8b-3. You choose whether it comes first or after M8b-1/2.
+   3. **Not a finite family: the target is the full statement.** One concrete `Setting` in S, for *all* φ, with `hB`, `hShort` and `hSound` **proved**, not assumed:
+      - `Short a b` := ∃ κ, κ.sz ≤ p(|b|) ∧ check (q(|b|)) κ ⌜b cooperates with a⌝ = true, with **explicit polynomials p and q** (certificate size and checker fuel). `hSound` should then follow from `check_sound`.
+      - One `outcome` function for all φ. The run fuel may depend on the programs' sizes, and it **will have to be exponential** for B_φ to finish its search. That is caveat 2 (the hard opponents are slow), and it's fine. Only the certificate size and checker fuel need to be polynomial.
+      - State the polynomial bounds as Lean theorems, not comments.
+   - **What stays on paper, and must be said in the docstring:** the step from "a's move against B_φ decides SAT φ" to "if P ≠ NP, a can't run in polynomial time". It needs our DSL's fuel to be polynomially related to Turing-machine time. Write that out as an explicit, named assumption.
+   - Post short PROGRESS notes per stage, and a `[REVIEW] awaiting FROM_APP #N` at the end of M8b-3, or sooner if you hit a design fork.

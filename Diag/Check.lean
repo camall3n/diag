@@ -454,6 +454,28 @@ def infer : (fuel : Nat) → List Fm → Proof → Option (Fm × Fin fuel)
             some (Fm.not (.eq t u), ⟨k.val - (v.sz + w.sz), by omega⟩)
           else none
     else none
+  | n+1, Γ, .valInd M q r =>
+    match infer n Γ q with
+    | none => none
+    | some (φ, m) =>
+      match infer m.val Γ r with
+      | none => none
+      | some (ψ, k) =>
+        let c := 4 * M.size + φ.size + ψ.size + 8
+        if h : c ≤ k.val ∧ φ = Fm.valIndBase M ∧ ψ = Fm.valIndStep M then
+          some (.all M, ⟨k.val - c, by omega⟩)
+        else none
+  | n+1, Γ, .natInd M q r =>
+    match infer n Γ q with
+    | none => none
+    | some (φ, m) =>
+      match infer m.val Γ r with
+      | none => none
+      | some (ψ, k) =>
+        let c := 4 * M.size + φ.size + ψ.size + 8
+        if h : c ≤ k.val ∧ φ = M.inst (.lit (.nat 0)) ∧ ψ = Fm.natIndStep M then
+          some (.all (.imp Fm.isNatFm M), ⟨k.val - c, by omega⟩)
+        else none
   | n+1, Γ, .boolCases t q r =>
     if t.isBool then
       match infer n Γ q with
