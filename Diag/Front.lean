@@ -294,4 +294,80 @@ partial def diagnose (Γ : List Fm) (p : Proof) : Option String :=
         | _ => ""
       some s!"rule `{ruleName p}` rejected{extra}; premises prove: [{"; ".intercalate prem}]"
 
+/-! ## Emitting compiled candidates as Lean source (untrusted)
+
+Used to kernel-check M6 candidates: the emitted definitions *are* the data the kernel
+checks, so the faithfulness of this printer doesn't affect what the theorems state. Known
+large literals are printed by name to keep the source small. -/
+
+def namedVals (self : String × Val) : List (String × Val) :=
+  [self, ("Kq", Kq), ("KPq", KPq), ("certBot", certBot), ("certBotP", certBotP),
+   ("Val.tru", Val.tru), ("Val.fls", Val.fls), ("Val.nil", Val.nil)]
+
+def leanStr (s : String) : String :=
+  "\"" ++ ((s.replace "\\" "\\\\").replace "\"" "\\\"") ++ "\""
+
+partial def Val.toLean (named : List (String × Val)) (v : Val) : String :=
+  match named.find? (fun (_, w) => w.sz == v.sz && w == v) with
+  | some (n, _) => n
+  | none => match v with
+    | .nat n => s!"(.nat {n})"
+    | .sym x => s!"(.sym {leanStr x})"
+    | .pair a b => s!"(.pair {Val.toLean named a} {Val.toLean named b})"
+
+partial def Tm.toLean (named : List (String × Val)) (t : Tm) : String :=
+  if t == δ then "δ" else if t == δP then "δP" else
+  match t with
+  | .bvar i => s!"(.bvar {i})"
+  | .lit v => s!"(.lit {Val.toLean named v})"
+  | .op1 o a => s!"(.op1 .{o.name} {Tm.toLean named a})"
+  | .op2 o a b => s!"(.op2 .{o.name} {Tm.toLean named a} {Tm.toLean named b})"
+  | .op3 o a b c => s!"(.op3 .{o.name} {Tm.toLean named a} {Tm.toLean named b} {Tm.toLean named c})"
+  | .ite a b c => s!"(.ite {Tm.toLean named a} {Tm.toLean named b} {Tm.toLean named c})"
+  | .run a b c => s!"(.run {Tm.toLean named a} {Tm.toLean named b} {Tm.toLean named c})"
+
+partial def Fm.toLean (named : List (String × Val)) : Fm → String
+  | .eq a b => s!"(.eq {Tm.toLean named a} {Tm.toLean named b})"
+  | .fls => ".fls"
+  | .imp a b => s!"(.imp {Fm.toLean named a} {Fm.toLean named b})"
+  | .and a b => s!"(.and {Fm.toLean named a} {Fm.toLean named b})"
+  | .all a => s!"(.all {Fm.toLean named a})"
+
+partial def Proof.toLean (named : List (String × Val)) : Proof → String
+  | .hyp i => s!"(.hyp {i})"
+  | .impI a p => s!"(.impI {Fm.toLean named a} {Proof.toLean named p})"
+  | .impE p q => s!"(.impE {Proof.toLean named p} {Proof.toLean named q})"
+  | .andI p q => s!"(.andI {Proof.toLean named p} {Proof.toLean named q})"
+  | .andL p => s!"(.andL {Proof.toLean named p})"
+  | .andR p => s!"(.andR {Proof.toLean named p})"
+  | .exfalso a p => s!"(.exfalso {Fm.toLean named a} {Proof.toLean named p})"
+  | .dne p => s!"(.dne {Proof.toLean named p})"
+  | .allI p => s!"(.allI {Proof.toLean named p})"
+  | .allE p t => s!"(.allE {Proof.toLean named p} {Tm.toLean named t})"
+  | .refl t => s!"(.refl {Tm.toLean named t})"
+  | .rw m p q => s!"(.rw {Fm.toLean named m} {Proof.toLean named p} {Proof.toLean named q})"
+  | .iteT t e p => s!"(.iteT {Tm.toLean named t} {Tm.toLean named e} {Proof.toLean named p})"
+  | .iteF t e p => s!"(.iteF {Tm.toLean named t} {Tm.toLean named e} {Proof.toLean named p})"
+  | .eval t u => s!"(.eval {Tm.toLean named t} {Tm.toLean named u})"
+  | .evalNe t u => s!"(.evalNe {Tm.toLean named t} {Tm.toLean named u})"
+  | .symRun f c args p =>
+    let as := ", ".intercalate (args.map fun (t, bB) => s!"({Tm.toLean named t}, {bB})")
+    s!"(.symRun {f} {Val.toLean named c} [{as}] {Proof.toLean named p})"
+  | .boolCases t p q => s!"(.boolCases {Tm.toLean named t} {Proof.toLean named p} {Proof.toLean named q})"
+  | .valInd m p q => s!"(.valInd {Fm.toLean named m} {Proof.toLean named p} {Proof.toLean named q})"
+  | .natInd m p q => s!"(.natInd {Fm.toLean named m} {Proof.toLean named p} {Proof.toLean named q})"
+
+partial def Expr.toLean (named : List (String × Val)) : Expr → String
+  | .var x => s!"(.var {leanStr x})"
+  | .lit v => s!"(.lit {Val.toLean named v})"
+  | .op o es => s!"(.op .{o.name} [{", ".intercalate (es.map (Expr.toLean named))}])"
+  | .ite c t e => s!"(.ite {Expr.toLean named c} {Expr.toLean named t} {Expr.toLean named e})"
+  | .let_ x e b => s!"(.let_ {leanStr x} {Expr.toLean named e} {Expr.toLean named b})"
+  | .call f es => s!"(.call {leanStr f} [{", ".intercalate (es.map (Expr.toLean named))}])"
+
+def Program.toLean (named : List (String × Val)) (p : Program) : String :=
+  let fns := p.fns.map fun (f, ps, b) =>
+    s!"({leanStr f}, [{", ".intercalate (ps.map leanStr)}], {Expr.toLean named b})"
+  s!"⟨[{",\n    ".intercalate fns}]⟩"
+
 end Diag.Front

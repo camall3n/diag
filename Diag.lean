@@ -28,3 +28,4 @@ import Diag.Necessity
 import Diag.InductionToys
 import Diag.Sound.SizeBound
 import Diag.KernelChecked
+import Diag.KernelCheckedM6

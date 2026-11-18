@@ -103,6 +103,28 @@ def loadEntry (src : String) : Except String Entry := do
 
 def main (args : List String) : IO UInt32 := do
   match args with
+  | ["--emit-lean", name, file] =>
+    let src ← IO.FS.readFile file
+    let res : Except String String := do
+      let forms ← read src
+      let progSX ← match forms.find? (fun | .list (.atom "program" :: _) => true | _ => false) with
+        | some p => pure p
+        | none => throw "no (program …) form"
+      let pfSX ← match forms.find? (fun | .list [.atom "proof", _] => true | _ => false) with
+        | some (.list [_, p]) => pure p
+        | _ => throw "no (proof …) form"
+      let prog ← compileProgram progSX
+      let code := prog.quote
+      let pf ← compilePf [] [] code pfSX
+      let named := namedVals (name ++ "Code", code)
+      return s!"/-- Emitted from `{file}` (LLM-generated M6 candidate). -/\n" ++
+        s!"def {name}Prog : Program := {Program.toLean (namedVals ("", Val.nil)).tail prog}\n" ++
+        s!"def {name}Code : Val := {name}Prog.quote\n" ++
+        s!"def {name}Cert : Proof :=\n  {Proof.toLean named pf}\n" ++
+        s!"def {name}Entry : Entry := ⟨{name}Code, {name}Cert.quote⟩\n"
+    match res with
+    | .ok out => IO.println out; return 0
+    | .error e => IO.eprintln e; return 1
   | "--tournament" :: files =>
     let mut es : Array (String × Entry) := #[]
     for f in files do

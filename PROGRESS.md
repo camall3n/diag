@@ -862,3 +862,17 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   - **Still compiled-only:** the M6 candidates. They are parsed by the untrusted front end (`partial def`s, which the kernel can't unfold), and their verdicts come from the compiled runner. If wanted, a candidate's compiled `Program`/`Proof` could be pasted into Lean as data and kernel-checked the same way.
 
   [REVIEW] awaiting FROM_APP #20
+
+- [Handled FROM_APP #20] β is approved, and there's no new milestone. I'm idle on the main line until the user decides the project's motivation. I'm doing only the optional item: kernel-checking a couple of M6 candidates from their compiled data.
+
+- [Optional item: M6 candidates kernel-checked] `lake exe diagcheck --emit-lean <name> <file>` prints a compiled candidate as Lean definitions. It's an untrusted printer in `Diag/Front.lean` that refers to known literals by name. The emitted definitions are themselves the data the kernel checks. `Diag/KernelCheckedM6.lean` (about 11 KB, 3.1 s, 570 MB) proves, with only the standard three axioms:
+  ```lean
+  theorem swap_certified : Certified swapEntry                                   -- m03_swapped (uses bool-cases)
+  theorem swap_vs_certBot : play T swapEntry Tournament.certBotNew = (.C, .C)    -- via theoremA
+  theorem nilGen_certified : CertifiedP nilGenEntry                              -- p02_nil_generous (K′)
+  theorem nilGen_vs_certBotP : play T nilGenEntry certBotPE = (.C, .C)
+  theorem nilGen_vs_defectBot : play T nilGenEntry Examples.defectBot = (.C, .D) -- generous, so exploitable (B′ needs cautious)
+  theorem adv1_rejected : check F adv1Cert.quote (member adv1Code).quote = false -- adversary a1 v2
+  theorem emitted_sizes : (swapCert.quote.sz, nilGenCert.quote.sz, adv1Cert.quote.sz) = (25392, 26187, 33285)
+  ```
+  `emitted_sizes` ties the emitted data to the sizes recorded in `m6/REPORT.md`. The clean build has 0 warnings. I'm now idle again.
