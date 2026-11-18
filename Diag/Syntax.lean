@@ -97,6 +97,14 @@ def occ (k : Nat) : Tm → Nat
   | .ite a b e => a.occ k + b.occ k + e.occ k
   | .run a b e => a.occ k + b.occ k + e.occ k
 
+/-- The head operation always yields a boolean: `eq`, `lt`, `isPair`, `isNat` (via
+`Op.applyPure`), and `check` (a `Val.ofBool`, or `false` for a non-numeric fuel). -/
+def isBool : Tm → Bool
+  | .op1 .isPair _ | .op1 .isNat _ => true
+  | .op2 .eq _ _ | .op2 .lt _ _ => true
+  | .op3 .check _ _ _ => true
+  | _ => false
+
 end Tm
 
 namespace Fm
@@ -158,6 +166,9 @@ inductive Proof where
   `boundsFm`), and the checker symbolically evaluates `code` on the `tᵢ`, concluding
   `run(f, code, [t₁…tₙ]) = e`. -/
   | symRun  : Nat → Val → List (Tm × Nat) → Proof → Proof
+  /-- `boolCases t p q`: if `p` proves `t = true → φ` and `q` proves `t = false → φ`, then φ.
+  Allowed only when `t.isBool`: its head operation always yields a boolean (FROM_APP #9). -/
+  | boolCases : Tm → Proof → Proof → Proof
 deriving Repr
 
 /-- `sz t < B + 1`, as an S formula. -/
@@ -291,6 +302,7 @@ def Proof.quote : Proof → Val
   | .eval t u => ofList [.sym "eval", t.quote, u.quote]
   | .evalNe t u => ofList [.sym "evalNe", t.quote, u.quote]
   | .symRun f c args p => ofList [.sym "symRun", .nat f, c, tmNatList args, p.quote]
+  | .boolCases t p q => ofList [.sym "boolCases", t.quote, p.quote, q.quote]
 
 def Proof.decode? : Val → Option Proof
   | .pair (.sym "hyp") (.pair (.nat i) (.sym "nil")) => some (.hyp i)
@@ -343,6 +355,10 @@ def Proof.decode? : Val → Option Proof
       match tmNatList? args, Proof.decode? p with
       | some args, some p => some (.symRun f c args p)
       | _, _ => none
+  | .pair (.sym "boolCases") (.pair t (.pair p (.pair q (.sym "nil")))) =>
+      match Tm.decode? t, Proof.decode? p, Proof.decode? q with
+      | some t, some p, some q => some (.boolCases t p q)
+      | _, _, _ => none
   | _ => none
 
 /-! ## Substitution on encoded formulas (the `subst` primitive) -/

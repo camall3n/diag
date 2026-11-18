@@ -486,3 +486,72 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   - Also queued, pending a nod: the `boolCases` rule (previous entry), before M6.
 
   [REVIEW] awaiting FROM_APP #9
+
+- [K′, boolCases and SwapBot done, Handled FROM_APP #9] **The one-way standard K′ with A′ and both versions of B′; the `boolCases` rule with its soundness case; SwapBot certified; and the mixed-standard tournament.** The clean build has 0 warnings and no `sorry`/`native_decide`/axioms.
+  - **`boolCases`, a small extension of the trusted rules.** It is in `Diag/Syntax.lean` (constructor and encoding), `Diag/Check.lean` (the `infer` case) and `Diag/Sound/Infer.lean` (the soundness case):
+    ```lean
+    | boolCases : Tm → Proof → Proof → Proof   -- p ⊢ t = true → φ,  q ⊢ t = false → φ  ⟹  φ
+    def Tm.isBool : Tm → Bool                  -- the condition: the head operation yields a boolean
+      | .op1 .isPair _ | .op1 .isNat _ => true
+      | .op2 .eq _ _ | .op2 .lt _ _ => true
+      | .op3 .check _ _ _ => true
+      | _ => false
+    theorem Tm.isBool_denote : ∀ (t : Tm), t.isBool = true → ∀ ρ : Nat → Val,
+        t.denote ρ = Val.tru ∨ t.denote ρ = Val.fls
+    ```
+    The justification is semantic: these operations return `Val.ofBool …` in `Op.applyPure` and in `Tm.denote` (and `check` with a non-numeric fuel returns `false`). `infer_sound` has the new case, which uses `Tm.isBool_denote`.
+  - **SwapBot**, `main = if eq(check(cert, subst(⌜K⌝, opp), F), false) then D else C`, is certified under K by `swapCert` in `Diag/CertGen.lean`. That uses a second generic lemma, `L2 :≡ ∀k ∀k' ∀x. k = k' → x = ite(eq(chk(k), false), D, C) → (x = C ↔ chk(k') = true)`, whose → direction uses `boolCases` on `chk(k')`. Its size is 24,703, and it needs about 103k checker fuel. It joins the K clique: the 11×11 matrix in `Diag/Tournament.lean` gives C among {CertBot old/new, HelperBot, LetBot, SwapBot}, and the other rows are unchanged. I refactored `memberCert` into `memberCertWith lem kq d code`, so the same skeleton serves K, K′ and KC.
+  - **K′** (`Diag/StandardP.lean`), built with `diag` like K. The binders mirror `Dfm`:
+    ```lean
+    def DfmP : Fm := .all (.all (.imp (boundFm (b 1) L) (.imp (boundFm (b 0) Kmax)
+      (.imp (.eq (.op3 .check (b 0) (.op2 .subst (.op2 .subst (b 2) (b 2)) (b 1)) (natT F)) truT)
+            (.eq (.run (natT T) (b 3) (Tm.list [b 1, b 0])) (.lit C))))))
+    def KP : Fm := DfmP.inst (.lit DfmP.quote)
+    theorem diagP_eval : substV DfmP.quote DfmP.quote = KP.quote
+    def memberP (c : Val) : Fm := KP.inst (.lit c)
+    theorem subst_KP (c : Val) : substV KP.quote c = (memberP c).quote
+    -- KC: refers to ⌜K′⌝ as a literal, never to itself, so no diagonalization of its own (noted in the code)
+    def DC : Fm := .all (.all (.imp (boundFm (b 1) L) (.imp (boundFm (b 0) Kmax)
+      (Fm.iff (.eq (.run (natT T) (b 2) (Tm.list [b 1, b 0])) (.lit C))
+              (.eq (chkAt (b 0) (b 1) (.lit KPq)) truT)))))
+    def memberC (c : Val) : Fm := DC.inst (.lit c)
+    ```
+  - **The theorems** (`Diag/TheoremsP.lean`):
+    ```lean
+    theorem memberP_denote (c : Val) (ρ : Nat → Val) :
+        (memberP c).denote ρ ↔ ∀ y κ : Val, y.sz ≤ L → κ.sz ≤ Kmax →
+          check F κ (memberP y).quote = true → (run T c [y, κ]).getD Val.bot = C
+    theorem memberC_denote (c : Val) (ρ : Nat → Val) :
+        (memberC c).denote ρ ↔ ∀ y κ : Val, y.sz ≤ L → κ.sz ≤ Kmax →
+          ((run T c [y, κ]).getD Val.bot = C ↔ check F κ (memberP y).quote = true)
+
+    def CertifiedP (e : Entry) : Prop := check F e.cert (memberP e.code).quote = true
+    def Cautious (c : Val) : Prop := ∀ y κ : Val, y.sz ≤ L → κ.sz ≤ Kmax →
+      (run T c [y, κ]).getD Val.bot = C → check F κ (memberP y).quote = true
+
+    theorem theoremA' (a b : Entry) (ha : a.ok = true) (hb : b.ok = true)
+        (hca : CertifiedP a) (hcb : CertifiedP b) : play T a b = (.C, .C)
+    theorem theoremB'_sem (a b : Entry) (hca : CertifiedP a) (hc : Cautious a.code)
+        (h : (play T a b).1 = .C) : (play T a b).2 = .C
+    theorem theoremB' (a b : Entry) (κc : Val) (hc : check F κc (memberC a.code).quote = true)
+        (hca : CertifiedP a) (h : (play T a b).1 = .C) : (play T a b).2 = .C
+    ```
+  - **Certificates.** These all check, at sizes 1,721, 11,112 and 12,125 respectively:
+    - CooperateBot under K′ (`coopCertP`): 7 steps, with `symRun` giving run = C outright;
+    - CertBot′ under K′ (`certPCert`): the ← half (`andR`) of the generic lemma L1, instantiated with ⌜K′⌝ and δ′;
+    - CertBot′'s cautiousness KC (`cautiousCert`), checked offline.
+  - **The mixed tournament** (`Diag/TournamentP.lean`). Row's move, in this column order: CertBot(K), HelperBot(K), SwapBot(K), CertBot′(K′), CooperateBot(with K′ cert), DefectBot, DefectBot+forged K′ cert.
+    ```
+    CertBot (K):            [C, C, C, D, D, D, D]
+    HelperBot (K):          [C, C, C, D, D, D, D]
+    SwapBot (K):            [C, C, C, D, D, D, D]
+    CertBot′ (K′):          [D, D, D, C, C, D, D]
+    CooperateBot (K′ cert): [C, C, C, C, C, C, C]
+    DefectBot:              [D, D, D, D, D, D, D]
+    DefectBot+forged K′:    [D, D, D, D, D, D, D]
+    ```
+    Certificate checks, as (under K, under K′): the K-members are (true, false); CertBot′ and CooperateBot are (false, true); the forged DefectBot is (false, false).
+    - **Inclusiveness:** CertBot′ vs CooperateBot is **(C, C)** under K′. Under K, CertBot vs CooperateBot is **(D, C)**, because CooperateBot isn't a K-member.
+    - **Cross-standard:** CertBot vs CertBot′ is **(D, D)**, as expected. Each checks the other's certificate against its own standard. **This is the bridging open question.** Neither standard recognizes the other's members, even though both are "cooperative". Candidate directions, not implemented: one certificate per standard in an entry; a disjunctive standard ("certified under K or K′"), whose theorems would need redoing; or a translation lemma inside S from K-certificates to K′. Note too that under K′, CooperateBot is exploited by DefectBot. B′ protects only *cautious* members, which is why it carries the `Cautious` hypothesis or a KC certificate.
+  - **`#print axioms`, re-run after `boolCases`.** Each of these depends on axioms: `[propext, Classical.choice, Quot.sound]`, the standard three only: `evalTm_sound`, `symEval_sound`, `symRunCore_sound`, `infer_sound`, `check_sound`, `check_member_sound`, `member_denote`, `theoremA`, `theoremB`, `memberP_denote`, `memberC_denote`, `theoremA'`, `theoremB'_sem`, `theoremB'`.
+  - Next: M6, starting with the named-variable certificate front end and then the LLM loop. I'll reread `FROM_APP.md` first.

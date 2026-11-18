@@ -51,6 +51,34 @@ theorem Tm.list_denote (ρ : Nat → Val) :
   | t :: ts => by
       simp [Tm.list, Tm.denote, Op.applyPure, Val.toList?, Tm.list_denote ρ ts]
 
+theorem Val.ofBool_cases (b : Bool) : Val.ofBool b = Val.tru ∨ Val.ofBool b = Val.fls := by
+  cases b <;> simp [Val.ofBool]
+
+/-- The justification of `boolCases`: a term whose head operation yields a boolean
+denotes `true` or `false` (from `Op.applyPure` and `Val.ofBool`). -/
+theorem Tm.isBool_denote : ∀ (t : Tm), t.isBool = true → ∀ ρ : Nat → Val,
+    t.denote ρ = Val.tru ∨ t.denote ρ = Val.fls
+  | .op1 .isPair a, _, ρ => by simp only [Tm.denote, Op.applyPure]; exact Val.ofBool_cases _
+  | .op1 .isNat a, _, ρ => by simp only [Tm.denote, Op.applyPure]; exact Val.ofBool_cases _
+  | .op2 .eq a b, _, ρ => by simp only [Tm.denote, Op.applyPure]; exact Val.ofBool_cases _
+  | .op2 .lt a b, _, ρ => by simp only [Tm.denote, Op.applyPure]; exact Val.ofBool_cases _
+  | .op3 .check a b c, _, ρ => by
+      simp only [Tm.denote]
+      split
+      · exact Val.ofBool_cases _
+      · simp [Op.applyPure]
+  | .bvar _, h, _ | .lit _, h, _ | .ite _ _ _, h, _ | .run _ _ _, h, _ => by simp [Tm.isBool] at h
+  | .op1 .eq _, h, _ | .op1 .pair _, h, _ | .op1 .fst _, h, _ | .op1 .snd _, h, _
+  | .op1 .plus _, h, _ | .op1 .minus _, h, _ | .op1 .lt _, h, _ | .op1 .sz _, h, _
+  | .op1 .check _, h, _ | .op1 .subst _, h, _ => by simp [Tm.isBool] at h
+  | .op2 .pair _ _, h, _ | .op2 .fst _ _, h, _ | .op2 .snd _ _, h, _ | .op2 .isPair _ _, h, _
+  | .op2 .isNat _ _, h, _ | .op2 .plus _ _, h, _ | .op2 .minus _ _, h, _ | .op2 .sz _ _, h, _
+  | .op2 .check _ _, h, _ | .op2 .subst _ _, h, _ => by simp [Tm.isBool] at h
+  | .op3 .eq _ _ _, h, _ | .op3 .pair _ _ _, h, _ | .op3 .fst _ _ _, h, _ | .op3 .snd _ _ _, h, _
+  | .op3 .isPair _ _ _, h, _ | .op3 .isNat _ _ _, h, _ | .op3 .plus _ _ _, h, _
+  | .op3 .minus _ _ _, h, _ | .op3 .lt _ _ _, h, _ | .op3 .sz _ _ _, h, _
+  | .op3 .subst _ _ _, h, _ => by simp [Tm.isBool] at h
+
 theorem infer_sound : ∀ (n : Nat) (Γ : List Fm) (pr : Proof) (φ : Fm) (rest : Fin n),
     infer n Γ pr = some (φ, rest) → ∀ ρ : Nat → Val, (∀ ψ ∈ Γ, ψ.denote ρ) → φ.denote ρ := by
   intro n
@@ -236,6 +264,29 @@ theorem infer_sound : ∀ (n : Nat) (Γ : List Fm) (pr : Proof) (φ : Fm) (rest 
         simp only [Fm.denote_not, Fm.denote]
         rw [evalTm_sound _ t v m ht ρ, evalTm_sound _ u w k hu ρ]
         exact hc.2
+      · contradiction
+    · contradiction
+  | boolCases t q r =>
+    rw [infer] at h
+    split at h
+    · rename_i hb
+      split at h
+      · rename_i t1 φ1 m hq
+        split at h
+        · rename_i t2 ψ k hr
+          split at h
+          · rename_i hc
+            simp only [Option.some.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, -⟩ := h
+            obtain ⟨-, rfl, rfl, rfl⟩ := hc
+            have h1 := ih n (by omega) Γ q _ m hq ρ hΓ
+            have h2 := ih m.val (by omega) Γ r _ k hr ρ hΓ
+            simp only [Fm.denote, Tm.denote] at h1 h2
+            rcases Tm.isBool_denote _ hb ρ with e | e
+            · exact h1 e
+            · exact h2 e
+          · contradiction
+        · contradiction
       · contradiction
     · contradiction
   | symRun f code args q =>

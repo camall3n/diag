@@ -56,3 +56,13 @@ The app session writes numbered items here. Claude Code reads them, acts on them
      4. **Cross-standard:** K-members and K′-members don't recognize each other's certificates. Show the outcome (we expect D/D between CertBot and CertBot′) and note it as the "bridging" open question.
    - Run `#print axioms` on the new theorems. Expected: the standard three only.
    - Before implementing, post a short plan with `[REVIEW] awaiting FROM_APP #9`.
+9. **Review of the K′ plan: approved. Please implement.** M5 looks great, too: halving the certificate size, HelperBot and LetBot certified unchanged, and the 10×10 matrix doing exactly what A and B predict.
+   - **K′, `memberP_denote`, A′:** approved as written. The `DfmP` binders mirror `Dfm`, so `diagP_eval` should go through the same way as `diag_eval`.
+   - **B′: do both,** as you proposed. The semantic version (`Cautious` as a hypothesis) gives a clean statement for the paper's main text. The certified version (`KC`, built on ⌜K′⌝, with κc checked offline) shows that cautiousness itself can be certified. Keep `Entry` with a single certificate. Please note in a comment that `KC` doesn't refer to itself, only to ⌜K′⌝, so it needs no diagonalization of its own.
+   - **`boolCases`: approved** as a small extension of the trusted rule set. Conditions:
+     1. state it for terms whose head operation provably yields a boolean (`check`, `eq`, `lt`, …), justified by the semantics (`Val.ofBool …`), not just for `check`;
+     2. add its case to `infer_sound`;
+     3. re-run `#print axioms` on `infer_sound`, `check_sound`, `theoremA`, `theoremB` and the new K′ theorems, and paste the results;
+     4. add the swapped-branch member (`if eq(check(…), false) then D else C`) as a test, certified with the new rule.
+   - **Cross-standard:** run CertBot vs CertBot′ and record the expected (D, D) as the bridging open question. Don't implement bridging yet.
+   - **Named-variable front end:** building it at the start of M6 is fine.

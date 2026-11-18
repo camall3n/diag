@@ -454,6 +454,18 @@ def infer : (fuel : Nat) → List Fm → Proof → Option (Fm × Fin fuel)
             some (Fm.not (.eq t u), ⟨k.val - (v.sz + w.sz), by omega⟩)
           else none
     else none
+  | n+1, Γ, .boolCases t q r =>
+    if t.isBool then
+      match infer n Γ q with
+      | some (.imp (.eq t1 (.lit (.sym "true"))) φ, m) =>
+        match infer m.val Γ r with
+        | some (.imp (.eq t2 (.lit (.sym "false"))) ψ, k) =>
+          if h : t1.size + t2.size + φ.size + ψ.size ≤ k.val ∧ t1 = t ∧ t2 = t ∧ ψ = φ then
+            some (φ, ⟨k.val - (t1.size + t2.size + φ.size + ψ.size), by omega⟩)
+          else none
+        | _ => none
+      | _ => none
+    else none
   | n+1, Γ, .symRun f code args q =>
     match infer n Γ q with
     | none => none

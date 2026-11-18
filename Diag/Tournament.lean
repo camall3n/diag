@@ -28,6 +28,10 @@ def letBot : Val := (Program.mk [
       (.let_ "ok" (.op .check [.var "cert", .var "phi", .lit (.nat F)])
         (.ite (.var "ok") (.lit C) (.lit D))))]).quote
 
+/-- Swapped branches: `if eq(check(…), false) then D else C`. Certified with `boolCases`. -/
+def swapBot : Val := (Program.mk [
+  ("main", ["opp", "cert"], .ite (.op .eq [chkE, .lit Val.fls]) (.lit D) (.lit C))]).quote
+
 /-- Not a member: cooperates with CertBot's exact code *without* checking its certificate. -/
 def cacheBot : Val := (Program.mk [
   ("main", ["opp", "cert"],
@@ -45,6 +49,7 @@ def certBotOld : Entry := certBotEntry                    -- the M2 hand-written
 def certBotNew : Entry := entry certBot                   -- the generated, smaller one
 def helperE : Entry := entry helperBot
 def letE : Entry := entry letBot
+def swapE : Entry := ⟨swapBot, (swapCert swapBot).quote⟩
 def cacheE : Entry := entry cacheBot                      -- generated certificate is rejected
 def stingyE : Entry := entry stingyBot                    -- generated certificate is rejected
 def defectStolen : Entry := ⟨Examples.defectBot.code, (memberCert certBot).quote⟩
@@ -52,7 +57,7 @@ def defectForged : Entry := entry Examples.defectBot.code -- certificate built f
 
 def entries : List (String × Entry) :=
   [("CertBot(old cert)", certBotOld), ("CertBot(new cert)", certBotNew),
-   ("HelperBot", helperE), ("LetBot", letE),
+   ("HelperBot", helperE), ("LetBot", letE), ("SwapBot", swapE),
    ("CooperateBot", Examples.cooperateBot), ("DefectBot", Examples.defectBot),
    ("CacheBot", cacheE), ("StingyBot", stingyE),
    ("DefectBot+stolen", defectStolen), ("DefectBot+forged", defectForged)]

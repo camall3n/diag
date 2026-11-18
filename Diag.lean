@@ -19,3 +19,6 @@ import Diag.Sound.Axioms
 import Diag.Theorems
 import Diag.CertGen
 import Diag.Tournament
+import Diag.StandardP
+import Diag.TheoremsP
+import Diag.TournamentP

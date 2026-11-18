@@ -58,15 +58,64 @@ def L1pf : Proof :=
     .impI (.eq (b 2) (b 1)) <| .impI (.eq (b 0) (iteCD (chkAt (b 3) (b 4) (b 2)))) <|
       .andI L1PA L1PB
 
-/-- The membership certificate for any `code` whose `symRun` gives
-`ite(check(κ, subst(⌜K⌝, y), F), C, D)`. -/
-def memberCert (code : Val) : Proof :=
+/-- The membership certificate built from a generic lemma `lem` (shaped like L1), for a
+standard whose code literal is `kq` and whose diagonal term is `d` (`eval` proves
+`kq = d`). -/
+def memberCertWith (lem : Proof) (kq : Val) (d : Tm) (code : Val) : Proof :=
   .allI <| .allI <| .impI (boundFm (b 1) L) <| .impI (boundFm (b 0) Kmax) <|
     .impE
       (.impE
-        (.allE (.allE (.allE L1pf (.lit Kq)) δ)
+        (.allE (.allE (.allE lem (.lit kq)) d)
           (.run (natT T) (.lit code) (Tm.list [b 1, b 0])))
-        (.eval (.lit Kq) δ))
+        (.eval (.lit kq) d))
       (.symRun T code symArgs (.andI (.hyp 1) (.andI (.hyp 0) topPf)))
+
+/-- The membership certificate for any `code` whose `symRun` gives
+`ite(check(κ, subst(⌜K⌝, y), F), C, D)`. -/
+def memberCert (code : Val) : Proof := memberCertWith L1pf Kq δ code
+
+/-! ## Swapped branches: `if eq(check(…), false) then D else C` (uses `boolCases`)
+
+  L2 :≡ ∀k ∀k' ∀x. k = k' → x = ite(eq(chk(k), false), D, C) → (x = C ↔ chk(k') = true) -/
+
+def fT : Tm := .lit Val.fls
+def iteSw (c : Tm) : Tm := .ite (.op2 .eq c fT) (.lit D) (.lit C)
+
+def hxE2 (i j : Nat) : Proof :=
+  .rw (.eq (b 1) (iteSw (chkAt (b 4) (b 5) (b 0)))) (.hyp i) (.hyp j)
+
+/-- `eq(chk', false) = true` from `chk' = false` (hypothesis 0). -/
+def eqFalsePf : Proof :=
+  -- symmetry: false = chk'
+  let symPf : Proof := .rw (.eq (b 0) (chk'.shift 1 0)) (.hyp 0) (.refl chk')
+  .rw (.eq (.op2 .eq (b 0) fT) truT) symPf (.eval (.op2 .eq fT fT) truT)
+
+/-- x = C → chk(k') = true, by cases on the boolean chk(k'). -/
+def L2PA : Proof :=
+  .impI (.eq (b 0) (.lit C)) <|
+    .boolCases chk' (.impI (.eq chk' truT) (.hyp 0)) <|
+      .impI (.eq chk' fT) <|
+        -- context: [chk' = false, x = C, x = E_k, k = k', …]
+        .exfalso (.eq chk' truT) <|
+          .impE (.evalNe (.lit D) (.lit C))
+            (.rw (.eq (b 0) (.lit C)) (.iteT (.lit D) (.lit C) eqFalsePf)   -- E' = D
+              (.rw (.eq (b 0) (.lit C)) (hxE2 3 2) (.hyp 1)))                -- E' = C
+
+/-- chk(k') = true → x = C, because then eq(chk', false) is not true. -/
+def L2PB : Proof :=
+  .impI (.eq chk' truT) <|
+    -- context: [chk' = true, x = E_k, k = k', …]
+    let notE : Proof :=
+      .impI (.eq (.op2 .eq chk' fT) truT) <|
+        .impE (.evalNe (.op2 .eq truT fT) truT)
+          (.rw (.eq (.op2 .eq (b 0) fT) truT) (.hyp 1) (.hyp 0))
+    .rw (.eq (b 1) (b 0)) (.iteF (.lit D) (.lit C) notE) (hxE2 2 1)
+
+def L2pf : Proof :=
+  .allI <| .allI <| .allI <|
+    .impI (.eq (b 2) (b 1)) <| .impI (.eq (b 0) (iteSw (chkAt (b 3) (b 4) (b 2)))) <|
+      .andI L2PA L2PB
+
+def swapCert (code : Val) : Proof := memberCertWith L2pf Kq δ code
 
 end Diag.Standard
