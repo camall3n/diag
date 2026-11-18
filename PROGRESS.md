@@ -198,3 +198,115 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   With ⚑0, CertBot's certificate is about 5 steps: `allI`, `allI`, `impI`, `impI`, `symRun` (which gives `run(…) = ite(check(…) = true, C, D)`), then `iteT`/`iteF` with `evalNe` (C ≠ D) for the two directions. ⌜K⌝ is built with `diag` in M4.
 
   **M2 deliverable:** the files `Diag/Syntax.lean` (Tm, Fm, Proof, encodings and round trips) and `Diag/Check.lean` (the mutual block, which replaces the M1 stubs), plus toy proofs that check: propositional tautologies, ∀-instantiation, `eval` on closed arithmetic and on `run(DefectBot) = D`, a `symRun` on CooperateBot, and some rejected forgeries. Soundness is M3.
+
+- [M2 started, Handled FROM_APP #4, Handled FROM_APP #5] I'm implementing the approved ⚑0–⚑6, with the parts of #4 that are still in force: the same Lean functions in the semantics, no reflection rule (with a Löb comment in the code), and the early CertBot acceptance test. One representation change: **`Tm` has fixed-arity operator nodes `op1/op2/op3` instead of `app : Op → List Tm → Tm`.** Lean can't derive `DecidableEq` for nested inductives, and fixed arity also lets me cache `size` as a `computed_field` and avoids nested induction in M3. `run`'s argument list is a single term that denotes a Lisp list (`Tm.list`). For the same reason, `symRun` takes *one* proof of the conjunction of its size bounds (`boundsFm`) instead of a list of proofs. `Op` has moved to `Diag/Op.lean` and gained `sz`. The syntax is in `Diag/Syntax.lean`.
+
+- [M2 done] **S's syntax, proofs and checker are in, and the acceptance test passes: the checker accepts CertBot's hand-written certificate for K(CertBot), and CertBot vs CertBot plays (C, C).** `lake build` is clean, with no warnings and no `sorry`/`native_decide`/axioms.
+  - Files:
+    - `Diag/Op.lean`: the operations
+    - `Diag/Syntax.lean`: Tm, Fm, Proof, shifting and instantiation, encodings with the round trips `Tm.decode?_quote` and `Fm.decode?_quote`, and `substV`
+    - `Diag/Lang.lean`: the DSL with total operations, ⚑0
+    - `Diag/Check.lean`: `symEval` plus the mutual block
+    - `Diag/Semantics.lean`: denotations (definitions only)
+    - `Diag/Standard.lean`: K, CertBot and its certificate
+    - `Diag/Acceptance.lean`, `Diag/Toys.lean`: tests
+  - **The M1 SCAFFOLD stubs are gone.** `eval` now calls the real `check` (flat cost f).
+
+  **Key definitions:**
+  ```lean
+  -- one mutual block, well-founded on fuel: eval, evalList, run, check, evalTm, infer
+  def run (fuel : Nat) (code : Val) (args : List Val) : Option Val
+  def check (fuel : Nat) (p φ : Val) : Bool
+  def infer : (fuel : Nat) → List Fm → Proof → Option (Fm × Fin fuel)
+  def evalTm : (fuel : Nat) → Tm → Option (Val × Fin fuel)
+  -- DSL primitive check(p, φ, f) inside `eval`:
+  --   | .check, [pv, φv, .nat f] => if h : f ≤ m.val then some (Val.ofBool (check f pv φv), ⟨m.val - f, _⟩) else none
+
+  def Tm.denote (ρ : Nat → Val) : Tm → Val      -- check ↦ Diag.check, run ↦ (Diag.run …).getD ⊥
+  def Fm.denote (ρ : Nat → Val) : Fm → Prop     -- ∀ ranges over all Val
+
+  def Dfm : Fm :=   -- inside ∀∀: κ = 0, y = 1, w = 2, z = 3
+    .all (.all (.imp (boundFm (b 1) L) (.imp (boundFm (b 0) Kmax)
+      (Fm.iff (.eq (.run (natT T) (b 3) (Tm.list [b 1, b 0])) (.lit C))
+              (.eq (.op3 .check (b 0) (.op2 .subst (.op2 .subst (b 2) (b 2)) (b 1)) (natT F)) truT)))))
+  def K : Fm := Dfm.inst (.lit Dfm.quote)
+  def δ : Tm := .op2 .subst (.lit Dfm.quote) (.lit Dfm.quote)
+  theorem diag_eval : substV Dfm.quote Dfm.quote = K.quote
+  def member (c : Val) : Fm := K.inst (.lit c)
+  theorem subst_K (c : Val) : substV K.quote c = (member c).quote
+
+  def certBotProg : Program := ⟨[("main", ["opp", "cert"],
+    .ite (.op .check [.var "cert", .op .subst [.lit Kq, .var "opp"], .lit (.nat F)]) (.lit C) (.lit D))]⟩
+  ```
+  The Löb comment is on `infer` in `Diag/Check.lean`.
+
+  **Acceptance numbers.**
+  - CertBot's certificate (`certBotCert` in `Diag/Standard.lean`) has **31 proof nodes**: allI×2, impI×5, rw×4, symRun×2, eval×1, evalNe×1, iteT×1, iteF×1, dne×1, impE×1, andI×5, plus hyps.
+  - Its encoded size is **44,339**. `⌜K⌝` is 4,373, CertBot's code 4,553, and the statement K(CertBot) 13,473.
+  - The checker needs about **157k fuel** to accept it, against `F = 2^18`.
+  - The runtime cost bound that `symRun` computes for CertBot is **287,467**, against `T = 2^20`. So the fuel-consistency condition is checked by the checker itself for each certificate.
+  - A full play of CertBot vs CertBot (two complete certificate checks) takes **5 ms**, in interpreted `#eval`.
+
+  **Tournament** (`Diag/Acceptance.lean`):
+
+  | Pairing | Result |
+  |---|---|
+  | CertBot vs CertBot | (C, C) |
+  | CertBot vs DefectBot | (D, D) |
+  | CertBot vs CooperateBot | (D, C) |
+  | CertBot vs DefectBot carrying CertBot's certificate | (D, D) |
+
+  **Toys** (`Diag/Toys.lean`). All 9 are accepted: propositional tautologies, classical ¬¬a → a, ∀-elimination, symmetry of = via rw, `eval` on arithmetic and on `run(DefectBot) = D`, `evalNe`, and `symRun` proving "CooperateBot always plays C". All **8 forgeries are rejected**:
+  1. a stolen certificate;
+  2. `symRun` on DefectBot claiming CertBot's result;
+  3. `symRun` without proved size bounds;
+  4. `symRun` with too little run fuel;
+  5. `symRun` on `loopBot`;
+  6. `evalNe` on equal values;
+  7. `eval` on an open term;
+  8. a reflection attempt (the equation check(…) = true can't be used to conclude φ).
+
+- [M2 findings, awkward points for review]
+  1. **Certificates are big, because large literals repeat.** CertBot's code occurs 5 times (in `symRun` and in the formulas that mention R), and ⌜K⌝ 3 times. `check` charges decoding by size, so this forced **F up from 2^16 to 2^18 and T up from 2^18 to 2^20**. `loopBot` still doesn't overflow the stack at T = 2^20. Kmax = 2^16 still fits (cert 44k), but it's tight for richer members. There are three cheap fixes, in order of preference: (a) structure certificates around a small generic lemma, `∀c ∀x. x = ite(c, C, D) → (x = C ↔ c = true)`, instantiated once (my estimate is about half the size); (b) shorter encoding tags; (c) a term-level `let`/abbreviation in proofs.
+  2. **A bug, found and fixed.** `symOp` charged the *checker* for the symbolic `subst`'s *runtime* cost, about 20k. Now the checker pays only for work it actually does: a computed operation, or decoding the literal formula when bounding `subst`.
+  3. **The de Bruijn motives for `rw` are fiddly by hand.** `M` and `M1` need R shifted past the hole. For M6, an LLM shouldn't write raw de Bruijn proofs: I'd add a small certificate front end with named variables that compiles to `Proof`.
+  4. **As expected, `symEval` folds literal operations,** so its result contains the literal ⌜K⌝, not δ. One `rw` with `eval(⌜K⌝ = δ)` fixes that.
+  5. **`decide` can't evaluate `check`** (well-founded recursion). So "CertBot's certificate checks" is shown by `#eval` at play time, not as a kernel-checked Lean theorem. For M5 we can instead prove `(member certBot).denote ρ` semantically, from the soundness lemmas below.
+
+- [M3 statements, for review before I start M3] These are the statements I intend to prove. They're **not in the code yet**, to keep it free of `sorry`. Helper definitions:
+  ```lean
+  def SEnv.Bounded (ρ : Nat → Val) (σ : SEnv) : Prop :=
+    ∀ x sv, (x, sv) ∈ σ → (sv.t.denote ρ).sz ≤ sv.b
+  def SEnv.denote (ρ : Nat → Val) (σ : SEnv) : Env := σ.map fun (x, sv) => (x, sv.t.denote ρ)
+  ```
+  **The `symEval` correctness lemma**, the riskiest piece. It is proved together with an analogous `symEvalList_sound`, by induction on the checker fuel k:
+  ```lean
+  theorem symEval_sound (p : Program) (ρ : Nat → Val) (k : Nat) (σ : SEnv) (e : Expr)
+      (r : SV) (c : Nat) (rest : Fin k)
+      (hs : symEval p k σ e = some ((r, c), rest)) (hσ : SEnv.Bounded ρ σ)
+      (fuel : Nat) (hc : c ≤ fuel) :
+      ∃ rem : Fin fuel, eval p fuel (SEnv.denote ρ σ) e = some (r.t.denote ρ, rem) ∧
+        fuel - c ≤ rem.val ∧ (r.t.denote ρ).sz ≤ r.b
+
+  theorem symRunCore_sound (k f : Nat) (code : Val) (args : List SV) (e : Tm) (rest : Fin (k + 1))
+      (hs : symRunCore k f code args = some (e, rest)) (ρ : Nat → Val)
+      (hb : ∀ a ∈ args, (a.t.denote ρ).sz ≤ a.b) :
+      run f code (args.map fun a => a.t.denote ρ) = some (e.denote ρ)
+  ```
+  **The `eval`-rule lemma.** It's purely computational: `evalTm` calls the same `run`/`check` that `denote` uses, so it needs no soundness of `check`:
+  ```lean
+  theorem evalTm_sound (n : Nat) (t : Tm) (v : Val) (rest : Fin n)
+      (h : evalTm n t = some (v, rest)) (ρ : Nat → Val) : t.denote ρ = v
+  ```
+  **Main soundness**, by strong induction on the fuel n:
+  ```lean
+  theorem infer_sound (n : Nat) (Γ : List Fm) (pr : Proof) (φ : Fm) (rest : Fin n)
+      (h : infer n Γ pr = some (φ, rest)) (ρ : Nat → Val) (hΓ : ∀ ψ ∈ Γ, ψ.denote ρ) :
+      φ.denote ρ
+
+  theorem check_sound (f : Nat) (p : Val) (φ : Fm) (h : check f p φ.quote = true) :
+      ∀ ρ, φ.denote ρ
+  ```
+  The supporting lemmas I expect: `Fm.denote_inst`, i.e. `(φ.inst t).denote ρ ↔ φ.denote (Asg.cons (t.denote ρ) ρ)`; `Fm.denote_shift` for `allI`; `substBound`/`opBound`/`opCost` against `Op.applyPure`; and `Tm.list` against `Val.toList?`. **Note:** `infer_sound` never needs `check_sound` inside its own induction. The `eval` rule only asserts *equations* about `check`, which `evalTm_sound` covers. That is exactly the absence of reflection.
+
+  [REVIEW] awaiting FROM_APP #6

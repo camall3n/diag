@@ -1,14 +1,14 @@
-import Diag.Val
+import Diag.Syntax
 import Diag.Params
 
 /-!
-# The DSL: syntax, encoding as values, and the fueled interpreter
+# The DSL: syntax, encoding as values, and the primitive operations
 
 * Programs are lists of named first-order functions; the entry point is `main`.
 * Programs travel as `Val`s: `Program.quote` / `Program.decode?`, with
   `Program.decode?_quote : decode? (quote p) = some p`.
-* `run fuel code args` is the one interpreter, used both for play and (from M3) in
-  the semantics of `S`.
+* The interpreter `run` lives in `Diag/Check.lean`, in one mutual definition with S's
+  checker, because each calls the other.
 
 ## Fuel (step counting)
 Every evaluation step costs 1 and leftover fuel is threaded through, so total work
@@ -21,48 +21,40 @@ checker, can do much more real work than its fuel.
 namespace Diag
 open Params
 
-inductive Op where
-  | eq | pair | fst | snd | isPair | isNat | plus | minus | lt
-  | check  -- check(p, φ, f): S's checker with fuel f, flat cost f   (M2)
-  | subst  -- subst(φ, v): put quoted v into φ's free variable       (M2)
-deriving DecidableEq, Repr
+/-- Lisp list → list of values. -/
+def Val.toList? : Val → Option (List Val)
+  | .sym "nil" => some []
+  | .pair v rest => (Val.toList? rest).map (v :: ·)
+  | _ => none
 
-namespace Op
+def Val.toNat : Val → Nat
+  | .nat n => n
+  | _ => 0
 
-def name : Op → String
-  | eq => "eq" | pair => "pair" | fst => "fst" | snd => "snd"
-  | isPair => "isPair" | isNat => "isNat" | plus => "plus" | minus => "minus"
-  | lt => "lt" | check => "check" | subst => "subst"
+/-- What a failed `run` denotes inside S's terms. -/
+def Val.bot : Val := .sym "⊥"
 
-def ofName? : String → Option Op
-  | "eq" => some eq | "pair" => some pair | "fst" => some fst | "snd" => some snd
-  | "isPair" => some isPair | "isNat" => some isNat | "plus" => some plus
-  | "minus" => some minus | "lt" => some lt | "check" => some check
-  | "subst" => some subst | _ => none
+/-- **Total** semantics of the primitive operations, apart from `check` (⚑0): the result,
+plus an extra cost on top of the 1-step base cost. Wrong arities and wrong types give
+default values (`nil`, `false`, 0), so DSL programs fail only by running out of fuel or
+exceeding the size cap `V`.
 
-theorem ofName?_name (o : Op) : ofName? o.name = some o := by
-  cases o <;> rfl
-
-/-- Result of an operation together with its extra cost (on top of the 1-step base cost).
-`none` on arity or type errors. -/
-def apply : Op → List Val → Option (Val × Nat)
-  | eq,     [a, b]                 => some (Val.ofBool (a == b), a.sz + b.sz)
-  | pair,   [a, b]                 => some (.pair a b, 0)
-  | fst,    [.pair a _]            => some (a, 0)
-  | snd,    [.pair _ b]            => some (b, 0)
-  | isPair, [v]                    => some (Val.ofBool (v matches .pair _ _), 0)
-  | isNat,  [v]                    => some (Val.ofBool (v matches .nat _), 0)
-  | plus,   [a@(.nat m), b@(.nat n)] => some (.nat (m + n), a.sz + b.sz)
-  | minus,  [a@(.nat m), b@(.nat n)] => some (.nat (m - n), a.sz + b.sz)
-  | lt,     [a@(.nat m), b@(.nat n)] => some (Val.ofBool (decide (m < n)), a.sz + b.sz)
-  -- SCAFFOLD (M1): replace in M2. `check` and `subst` get their real semantics in M2,
-  -- when `run` and `check` become one mutual definition.
-  | check,  _                      => none
-  -- SCAFFOLD (M1): replace in M2.
-  | subst,  _                      => none
-  | _,      _                      => none
-
-end Op
+`check` is not routed here when it has 3 arguments and a numeric fuel: `eval` (Check.lean)
+and `Tm.denote` (M3) call the real checker. Every other use of `check` gives `false`. -/
+def Op.applyPure : Op → List Val → Val × Nat
+  | .eq,     [a, b]  => (Val.ofBool (a == b), a.sz + b.sz)
+  | .pair,   [a, b]  => (.pair a b, 0)
+  | .fst,    [v]     => (match v with | .pair a _ => a | _ => Val.nil, 0)
+  | .snd,    [v]     => (match v with | .pair _ b => b | _ => Val.nil, 0)
+  | .isPair, [v]     => (Val.ofBool (v matches .pair _ _), 0)
+  | .isNat,  [v]     => (Val.ofBool (v matches .nat _), 0)
+  | .plus,   [a, b]  => (.nat (a.toNat + b.toNat), a.sz + b.sz)
+  | .minus,  [a, b]  => (.nat (a.toNat - b.toNat), a.sz + b.sz)
+  | .lt,     [a, b]  => (Val.ofBool (decide (a.toNat < b.toNat)), a.sz + b.sz)
+  | .sz,     [v]     => (.nat v.sz, 0)
+  | .subst,  [φ, v]  => (substV φ v, φ.sz + v.sz)
+  | .check,  _       => (Val.fls, 0)
+  | _,       _       => (Val.nil, 0)
 
 inductive Expr where
   | var  : String → Expr
@@ -186,80 +178,5 @@ theorem Program.decodeFns?_quote (fns : List (String × List String × Expr)) :
 
 theorem Program.decode?_quote (p : Program) : Program.decode? p.quote = some p := by
   simp [Program.decode?, Program.quote, Program.decodeFns?_quote]
-
-/-! ## The interpreter -/
-
-abbrev Env := List (String × Val)
-
-/- `eval p fuel env e` returns the value and the remaining fuel, which is strictly
-less than `fuel` (the `Fin fuel`). -/
-mutual
-def eval (p : Program) : (fuel : Nat) → Env → Expr → Option (Val × Fin fuel)
-  | 0, _, _ => none
-  | n+1, env, .var x => (env.lookup x).map fun v => (v, ⟨n, by omega⟩)
-  | n+1, _, .lit v => some (v, ⟨n, by omega⟩)
-  | n+1, env, .op o es =>
-    match evalList p n env es with
-    | none => none
-    | some (vs, m) =>
-      match o.apply vs with
-      | none => none
-      | some (v, c) =>
-        if h : c ≤ m.val ∧ v.sz ≤ V then some (v, ⟨m.val - c, by omega⟩) else none
-  | n+1, env, .ite c t e =>
-    match eval p n env c with
-    | none => none
-    | some (b, m) =>
-      match eval p m.val env (if b = Val.tru then t else e) with
-      | none => none
-      | some (v, r) => some (v, ⟨r.val, by omega⟩)
-  | n+1, env, .let_ x e b =>
-    match eval p n env e with
-    | none => none
-    | some (v, m) =>
-      match eval p m.val ((x, v) :: env) b with
-      | none => none
-      | some (w, r) => some (w, ⟨r.val, by omega⟩)
-  | n+1, env, .call f es =>
-    match evalList p n env es with
-    | none => none
-    | some (vs, m) =>
-      match p.lookup f with
-      | none => none
-      | some (ps, body) =>
-        if ps.length = vs.length then
-          match eval p m.val (ps.zip vs) body with
-          | none => none
-          | some (w, r) => some (w, ⟨r.val, by omega⟩)
-        else none
-termination_by fuel _ _ => fuel
-/-- Evaluates arguments left to right; costs 1 per argument. -/
-def evalList (p : Program) : (fuel : Nat) → Env → List Expr → Option (List Val × Fin (fuel + 1))
-  | n, _, [] => some ([], ⟨n, by omega⟩)
-  | 0, _, _ :: _ => none
-  | n+1, env, e :: es =>
-    match eval p n env e with
-    | none => none
-    | some (v, m) =>
-      match evalList p m.val env es with
-      | none => none
-      | some (vs, r) => some (v :: vs, ⟨r.val, by omega⟩)
-termination_by fuel _ _ => fuel
-end
-
-/-- **The** interpreter. Decoding the code costs `code.sz` fuel up front; then `main`
-is called on `args`. `none` means: out of fuel, malformed code, or a runtime error. -/
-def run (fuel : Nat) (code : Val) (args : List Val) : Option Val :=
-  if code.sz ≤ fuel then
-    match Program.decode? code with
-    | none => none
-    | some p =>
-      match p.lookup "main" with
-      | none => none
-      | some (ps, body) =>
-        if ps.length = args.length then
-          (eval p (fuel - code.sz) (ps.zip args) body).map (·.1)
-        else none
-  else none
 
 end Diag

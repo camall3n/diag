@@ -1,5 +1,12 @@
 import Diag.Val
 import Diag.Params
+import Diag.Op
+import Diag.Syntax
 import Diag.Lang
+import Diag.Check
+import Diag.Semantics
 import Diag.Game
 import Diag.Examples
+import Diag.Standard
+import Diag.Acceptance
+import Diag.Toys

@@ -52,19 +52,29 @@ open Params in
 open Params in
 #eval play T parityBot loopBot         -- loopBot has 2 functions: (C, D)
 
+theorem eval_lit_val (p : Program) (env : Env) (v w : Val) :
+    ∀ m (r : Fin m), eval p m env (lit v) = some (w, r) → w = v
+  | 0, r, _ => r.elim0
+  | m+1, r, h => by simp [eval] at h; exact h.1.symm
+
+theorem eval_lit_ne_none (p : Program) (env : Env) (v : Val) :
+    ∀ m, 0 < m → eval p m env (lit v) ≠ none
+  | m+1, _ => by simp [eval]
+
 /-- A constant bot `main(opp, cert) = v` returns `v` whenever the fuel exceeds the size
 of its code (decoding costs `code.sz`, and evaluating the literal costs 1 step). -/
 theorem run_constBot (v : Val) (fuel : Nat) (opp cert : Val)
     (h : (bot (lit v)).code.sz < fuel) :
     run fuel (bot (lit v)).code [opp, cert] = some v := by
-  obtain ⟨k, hk⟩ : ∃ k, fuel - (bot (lit v)).code.sz = k + 1 := ⟨_, (Nat.succ_pred_eq_of_pos (by omega)).symm⟩
-  simp only [bot] at hk h ⊢
-  simp only [run, Program.decode?_quote]
-  simp only [Program.lookup]
-  simp only [List.lookup, beq_self_eq_true, List.length_cons, List.length_nil, List.zip_cons_cons,
-    List.zip_nil_right, ite_true]
-  rw [ite_eq_left_of_eq_true _ _ (eq_true (Nat.le_of_lt h)), hk, eval]
-  rfl
+  simp only [bot] at h ⊢
+  unfold run
+  split
+  · simp only [Program.decode?_quote, Program.lookup, List.lookup, beq_self_eq_true,
+      List.length_cons, List.length_nil, List.zip_cons_cons, List.zip_nil_right, ite_true]
+    split
+    · next heq => exact congrArg some (eval_lit_val _ _ _ _ _ _ heq)
+    · next heq => exact absurd heq (eval_lit_ne_none _ _ _ _ (by omega))
+  · next hn => exact absurd (Nat.le_of_lt h) hn
 
 /-- The M1 demo as a theorem, proved by unfolding the definitions (no `native_decide`). -/
 theorem defect_vs_cooperate : play Params.T defectBot cooperateBot = (.D, .C) := by

@@ -1,4 +1,4 @@
-import Diag.Lang
+import Diag.Check
 
 /-!
 # The open-source Prisoner's Dilemma

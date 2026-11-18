@@ -51,3 +51,12 @@ These are non-negotiable:
 
 - Lean 4 via `elan`, with a `lake` project. Avoid Mathlib unless it's clearly needed, and justify it in `PROGRESS.md` if you add it.
 - Keep the build green. Commit with git after each milestone, if the user has set up a repository.
+
+## Automation of the app handoff (hooks in `.claude/settings.json`)
+
+- **`scripts/app_inbox.sh`** runs at session start and on every user prompt. It lists the `FROM_APP.md` items that `PROGRESS.md` hasn't marked handled. A line containing `Handled FROM_APP #n` marks item n as handled, and several numbers can go on one line. **Always mark items with exactly that phrase.**
+- **`scripts/stop_hook.sh`** runs when you finish a turn:
+  - If there are unhandled items, it asks you to continue with them. This happens at most 3 times in a row.
+  - **Asking for review:** when you need the app's review before continuing, end your PROGRESS entry with `[REVIEW] awaiting FROM_APP #N`, where N is the next item number in `FROM_APP.md` (one more than the current last one), and then stop. The hook waits up to 10 minutes for item N. When it appears, the hook tells you to continue. If nothing arrives, you stop as usual.
+- **Decisions for the user:** when an item from the app begins with **⚑ DECISION PENDING**, don't carry out the part it names. Acknowledge it, continue with anything else the item allows, or stop. The user decides in the app, and a later item will settle it.
+- The app session checks `PROGRESS.md` periodically while you're working. It answers routine reviews itself and brings real design decisions to the user.
