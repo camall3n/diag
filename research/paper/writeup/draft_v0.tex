@@ -1,0 +1,71 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\setlist{nosep,leftmargin=1.4em}
+\setlength{\parskip}{3pt}
+\setlength{\parindent}{0pt}
+
+\title{\vspace{-1.5em}Certificate-Based Cooperation in Open-Source Games:\\ What We Built, What Broke, and When to Come Back}
+\author{Findings memo, \texttt{\~{}/dev/diag}, November 2026}
+\date{\vspace{-2em}}
+
+\begin{document}
+\maketitle
+
+\paragraph{The goal.}
+Two programs that can read each other's source play a one-shot Prisoner's Dilemma. Löbian agents such as FairBot (``cooperate if I can prove you cooperate with me'') cooperate with each other robustly, but only by \emph{searching} for proofs. Exhaustive search over proofs of length $B$ costs about $|\Sigma|^B$, which is affordable for $B \approx 20$--$28$, while Critch's bounded-Löb proofs need $B \gtrsim 10^4$. Our idea was to replace search with checking. Fix a standard $K$ in advance, and have every agent ship its code together with a \emph{certificate} that it satisfies $K$. An LLM writes both, and at play time each side runs one certificate check and no search.
+
+\paragraph{What we built (all in Lean 4, no \texttt{sorry}, standard three axioms only).}
+\begin{itemize}
+\item A small DSL with a fuel-bounded interpreter \texttt{run}. Each operation is charged the size of the value it builds, so values and work stay bounded by fuel (\texttt{eval\_sz\_le}).
+\item A deep-embedded object logic $S$ with a fueled checker \texttt{check}, proved sound (\texttt{check\_sound}). $S$ has no reflection rule about its own checker, which would make every program a member (the Löb trap).
+\item The standard $K$, closed by the diagonal lemma rather than by Löb: \emph{I cooperate with $y$ iff $y$'s certificate checks as a proof of $K(y)$}. \textbf{Theorem A:} two certified members cooperate. \textbf{Theorem B:} a certified member is never exploited. A one-way variant $K'$ and an exclusivity theorem (no program satisfies both $K$ and $K'$).
+\item CertBot's certification and its tournament outcomes are kernel-checked (\texttt{unseal} + \texttt{decide +kernel}, no \texttt{native\_decide}). Certificates are 1.7k--50k nodes; a game takes about 5\,ms. An LLM pilot (M6) certified 8/8 members (6 on the first attempt) and accepted 0/6 adversarial attempts, but the generator was Claude Code itself, so it is not independent evidence.
+\end{itemize}
+The construction works. The trouble is that working wasn't enough to say why anyone needs it.
+
+\paragraph{What broke, in order.}
+\begin{enumerate}
+\item \textbf{Necessity assumed its hard parts.} We tried to show the approach is forced: if P $\neq$ NP, no fast agent is both \emph{fair} (cooperates whenever a short proof of the opponent's cooperation exists) and \emph{unexploitable}. The Lean version (M8) took ``$B_\varphi$ cooperates iff $\varphi$ is satisfiable'' and ``short proofs exist'' as hypotheses. With a fixed fuel cap the first is false for large $\varphi$. Proving the second inside $S$ needed induction (M8b), which was doable but would take many sessions.
+\item \textbf{Necessity doesn't single us out anyway.} Contrarian (``play the opposite of what you play against me'') gives an unconditional diagonal argument: no agent whose runs have short proofs is both fair and unexploitable. It needs neither P $\neq$ NP nor induction, and it is folklore-level (Anderlini 1990; Barasz et al.\ \S5). It constrains \emph{every} feasible approach, so it can't argue for ours.
+\item \textbf{Zero exploitability isn't required.} If necessity can't justify our criteria, the criteria have to justify themselves, and one doesn't: $\varepsilon$-grounded FairBot is already an equilibrium: defecting against it earns about $\varepsilon T + (1-\varepsilon)P < R$. So ``unexploitable'' isn't a criterion we can lean on without further argument.
+\item \textbf{The reframing hits fair exchange.} The defensible claim is a \emph{provable conditional commitment}: ``I cooperate iff you make the same commitment'' (A is the ``if'', B the ``only if''). But \emph{with} a binding executor (a smart contract, a referee), a plain escrow contract already gives A and B. \emph{Without} one, a certified agent can block its own incoming channel, never receive the opponent's certificate, and defect ``honestly'' while the opponent cooperates (the self-starvation attack). Signed receipts only move the problem one level up. This is the fair-exchange impossibility (Even--Yacobi; Pagnia--Gärtner) in strategic form, and its escape routes (collateral, gradual release) cost an $\varepsilon$, the same price as grounding.
+\end{enumerate}
+So certificates don't occupy a corner of their own: with an executor they equal escrow, and without one they pay the same $\varepsilon$ as everything else.
+
+\paragraph{The load-bearing question.}
+Our one distinctive feature is \emph{semantic membership}: any program \emph{proved} to honor $K$ is a member, rather than one exact program (CliqueBot) or one escrow address. That only matters in a regime with \textbf{binding execution}, where agents \textbf{can't route the committed action through a shared contract} and \textbf{must each keep their own, differing code}. We couldn't name a real setting like that. The bare program-equilibrium model is one by definition, but that's a model, not a deployment. The most plausible candidate is hardware-governance commitments of the flexHEG kind (``if the other party makes the same commitment''), unexamined. Everything else we found (necessity, novelty searches) turned out not to bear on this question. We spent most of the effort defending the wrong wall.
+
+\paragraph{What is and isn't known about novelty.} Novelty doesn't settle the wall either, but it does decide whether the fallback notes below are worth writing.
+About 135 literature searches found no prior work on play-time certificates for a self-referential standard with a verified checker. The closest are Duclaux et al.\ 2026 (offline Lean proofs per pair of bots), Peters \& Szentes 2012 (diagonal contracts with exact code matching), Ondras 2026 (handshake with a trusted oracle), and DiGiovanni, Clifton \& Macé 2025 (template checking assumed, listed as future work). Caveat: snippet-level searches confabulated at least one source, so ``nobody has done this'' is weaker than it sounds. Cryptographers and mechanism designers would likely consider the executor question settled.
+
+\paragraph{Paths to a paper, if we come back.}
+\begin{itemize}
+\item \textbf{Bridge note} (workshop-sized): unexploitable conditional cooperation \emph{is} fair exchange; with an executor escrow suffices, without one $\varepsilon$ is the floor; map Critch, Oesterheld and certificates onto it. Audience: cooperative AI, which lists checkable commitments as open. Risk: folklore to cryptographers, which is the same charge that sinks the main line.
+\item \textbf{Theory note} for open-source game theory: shipped proofs plus the diagonal lemma give cooperation with no proof search and no Löb, fully machine-checked. Modest but solid; the Lean artifact exists.
+\item \textbf{Full paper}: only if the regime above turns out to be real. Then the missing pieces are an independent-model LLM run and a story for interoperation between different standards (CertBot vs.\ CertBot$'$ is currently (D,\,D)).
+\end{itemize}
+
+\paragraph{When to pick this up, and when not to.}
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.42\linewidth}p{0.52\linewidth}@{}}
+\toprule
+\textbf{Resume if\ldots} & \textbf{Cheapest test} \\
+\midrule
+A concrete setting has binding execution but no shared contract, and agents keep their own code & Try to name one in 30 minutes, then check whether a single ``CliqueBot-as-escrow'' contract emulates it. If it does, the case falls. \\
+Nobody has written ``program equilibrium $\approx$ fair exchange'' & An hour of searches with opened sources (Harrenstein 2007; Katz 1991; rational fair exchange), plus one email to Oesterheld or DiGiovanni. \\
+Someone has a real use for template checking & Ask DiGiovanni, Clifton \& Macé what they intended it for. \\
+\midrule
+\multicolumn{2}{@{}p{0.96\linewidth}@{}}{\textbf{Stop if} the bridge reduction is known \emph{and} no such setting turns up. Then archive the Lean repository and, at most, post a short note.}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Lessons worth keeping.}
+Ask what the criteria are, and whether an executor is assumed, \emph{before} proving theorems. Don't put the hard theorem in the hypotheses. Treat any literature claim not backed by an opened page as unverified. The Lean development, the literature corpus (about 110 reports) and the App--Code workflow are reusable whatever we decide.
+
+\end{document}
