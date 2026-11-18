@@ -10,3 +10,9 @@ import Diag.Examples
 import Diag.Standard
 import Diag.Acceptance
 import Diag.Toys
+import Diag.Sound.Basic
+import Diag.Sound.EvalTm
+import Diag.Sound.SymOp
+import Diag.Sound.SymEval
+import Diag.Sound.Infer
+import Diag.Sound.Axioms

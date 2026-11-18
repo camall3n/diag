@@ -79,6 +79,12 @@ def opTm : Op → List Tm → Option Tm
   | o, [a, b, c] => some (.op3 o a b c)
   | _, _ => none
 
+/-- The checker's own work for a symbolic (not computed) operation: decoding the
+literal formula when bounding `subst`. -/
+def symWork : Op → List SV → Nat
+  | .subst, [⟨.lit φ, _⟩, _] => φ.sz
+  | _, _ => 0
+
 /-- A symbolic operation application: `((result, extra runtime cost), checker work)`.
 The checker's own work is the operation's cost when it computes a literal result.
 Otherwise it's the work of `opBound` (decoding a literal formula for `subst`). -/
@@ -92,10 +98,7 @@ def symOp (o : Op) (args : List SV) : Option ((SV × Nat) × Nat) :=
     if args.length = o.arity then
       match opTm o (args.map SV.t), opBound o args, opCost o args with
       | some t, some b, some c =>
-        let work := match o, args with
-          | .subst, [⟨.lit φ, _⟩, _] => φ.sz
-          | _, _ => 0
-        if b ≤ V then some ((⟨t, b⟩, c), work) else none
+        if b ≤ V then some ((⟨t, b⟩, c), symWork o args) else none
       | _, _, _ => none
     else none
 

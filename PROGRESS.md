@@ -310,3 +310,58 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   The supporting lemmas I expect: `Fm.denote_inst`, i.e. `(φ.inst t).denote ρ ↔ φ.denote (Asg.cons (t.denote ρ) ρ)`; `Fm.denote_shift` for `allI`; `substBound`/`opBound`/`opCost` against `Op.applyPure`; and `Tm.list` against `Val.toList?`. **Note:** `infer_sound` never needs `check_sound` inside its own induction. The `eval` rule only asserts *equations* about `check`, which `evalTm_sound` covers. That is exactly the absence of reflection.
 
   [REVIEW] awaiting FROM_APP #6
+
+- [M3 started, Handled FROM_APP #6] **Confirmed: `evalTm` calls the same `check`/`run` with the term's own fuel argument.** In `Diag/Check.lean`, `evalTm` does `| .check, .nat f => if h : f ≤ j.val then some (Val.ofBool (check f va vb), …)` and `| .nat g, some as => if h : g ≤ j.val then some ((run g vc as).getD Val.bot, …)`. It charges exactly f (or g) and never substitutes a smaller budget. If the remaining checker fuel is too small, the rule fails rather than calling `check` with less. The symbolic `ite` matches what the proof needs: cost `1 + cc + max tc ec`, size `max tv.b ev.b`. I'll add the `boundsFm` lemma and the `member` corollary as asked. Starting the proofs.
+
+- [M3 done] **S is proved sound, with no `sorry`, no `native_decide` and no new axioms. `lake build` is clean with 0 warnings.** The proofs are in `Diag/Sound/`, about 1,200 lines:
+  - `Basic.lean`: log2 facts; de Bruijn shift/instantiate lemmas for the semantics; the exact size of `subst`'s result
+  - `EvalTm.lean`: `evalTm_sound`
+  - `SymOp.lean`: symbolic operations against `Op.applyPure`, plus cost and size bounds
+  - `SymEval.lean`: `symEval_sound`, `symRunCore_sound`
+  - `Infer.lean`: `infer_sound`, `check_sound`, `check_member_sound`
+  - `Axioms.lean`: the axiom audit
+
+  The statements are exactly the ones reviewed in FROM_APP #6, plus the requested corollary:
+  ```lean
+  theorem evalTm_sound : ∀ (n : Nat) (t : Tm) (v : Val) (rest : Fin n),
+      evalTm n t = some (v, rest) → ∀ ρ, t.denote ρ = v
+
+  theorem symEval_sound (p : Program) (ρ : Nat → Val) (k : Nat) (σ : SEnv) (e : Expr)
+      (r : SV) (c : Nat) (rest : Fin k)
+      (hs : symEval p k σ e = some ((r, c), rest)) (hσ : SEnv.Bounded ρ σ)
+      (fuel : Nat) (hc : c ≤ fuel) :
+      ∃ rem : Fin fuel, eval p fuel (SEnv.denote ρ σ) e = some (r.t.denote ρ, rem) ∧
+        fuel - c ≤ rem.val ∧ (r.t.denote ρ).sz ≤ r.b
+
+  theorem symRunCore_sound (k f : Nat) (code : Val) (args : List SV) (e : Tm) (rest : Fin (k + 1))
+      (hs : symRunCore k f code args = some (e, rest)) (ρ : Nat → Val)
+      (hb : ∀ a ∈ args, (a.t.denote ρ).sz ≤ a.b) :
+      run f code (args.map fun a => a.t.denote ρ) = some (e.denote ρ)
+
+  theorem infer_sound : ∀ (n : Nat) (Γ : List Fm) (pr : Proof) (φ : Fm) (rest : Fin n),
+      infer n Γ pr = some (φ, rest) → ∀ ρ : Nat → Val, (∀ ψ ∈ Γ, ψ.denote ρ) → φ.denote ρ
+
+  theorem check_sound (f : Nat) (p : Val) (φ : Fm) (h : check f p φ.quote = true) :
+      ∀ ρ, φ.denote ρ
+
+  theorem check_member_sound (f : Nat) (κ c : Val)
+      (h : check f κ (Standard.member c).quote = true) : ∀ ρ, (Standard.member c).denote ρ
+  ```
+  **The `boundsFm` lemma** (FROM_APP #6), which connects the `symRun` hypotheses to `symRunCore_sound`:
+  ```lean
+  theorem boundFm_denote (t : Tm) (B : Nat) (ρ : Nat → Val) :
+      (boundFm t B).denote ρ ↔ (t.denote ρ).sz ≤ B
+  theorem boundsFm_denote (ρ : Nat → Val) :
+      ∀ args : List (Tm × Nat), (boundsFm args).denote ρ →
+        ∀ a ∈ args.map (fun (p : Tm × Nat) => (⟨p.1, p.2⟩ : SV)), (a.t.denote ρ).sz ≤ a.b
+  ```
+  **The substitution lemma in the semantics**, used for `allE` and `rw`; there's also a shift version for `allI`:
+  ```lean
+  theorem Fm.denote_inst (φ : Fm) (t : Tm) (ρ : Nat → Val) :
+      (φ.inst t).denote ρ ↔ φ.denote (Asg.cons (t.denote ρ) ρ)
+  ```
+  **`#print axioms`** (`Diag/Sound/Axioms.lean`). Each of `evalTm_sound`, `symEval_sound`, `symRunCore_sound`, `infer_sound`, `check_sound` and `check_member_sound` depends on axioms: `[propext, Classical.choice, Quot.sound]`. Those are Lean's three standard axioms and nothing else. `Classical.choice` comes from `dne`, the classical rule, and from `Classical.byContradiction`.
+- [M3 notes]
+  1. **As predicted, `infer_sound` never calls `check_sound`.** The `eval` rule's case uses only `evalTm_sound`, which holds by computation, because `evalTm` calls the same `check`/`run` that `Tm.denote` uses. That is the formal sense in which S has no reflection rule.
+  2. **One change to `Diag/Check.lean` during M3, with no change in behaviour.** The checker-work computation inside `symOp` is now a separate function, `symWork`, which made the proof's case analysis tractable.
+  3. **The proof is by strong induction on fuel throughout** (`Nat.strongRecOn`). `symEval_sound` and the list version are proved together as one conjunction. Next: M4, the Theorems A and B, stated about `play`. I'll reread `FROM_APP.md` first.
