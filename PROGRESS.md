@@ -393,3 +393,51 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   **`#print axioms`.** Each of `member_denote`, `theoremA` and `theoremB` depends on axioms: `[propext, Classical.choice, Quot.sound]`.
 - [M4 design decision, small, flagged for the app] **Each side now checks the sizes of *both* entries.** `move T me opp = if me.ok && opp.ok then toMove (run …) else .D`; before, it checked only `me.ok`. Without this, Theorem B would fail against oversized opponents. K only speaks about opponents within the caps, so a member could legally cooperate with an oversized entry, which then plays D. With the change, an out-of-spec pairing is D/D. This is a local check by each player, not a referee. Theorem B needs no size hypothesis, and Theorem A only needs both entries to be within the caps. All tournament results are unchanged.
 - [M4 note on the fuel-consistency rule in CLAUDE.md] In this design the fuel-consistency lemma is **general and proved**: it is `symRunCore_sound`. If the checker's computed cost bound, `code.sz + c`, is ≤ the run fuel f, then `run f code args` succeeds and returns the predicted value for every opponent within the bounds. Every membership certificate goes through `symRun`, so it carries this check, and for CertBot it is 287,467 ≤ T = 2^20. A separate kernel-checked lemma for CertBot's concrete numbers would need `decide` to evaluate the well-founded `symEval`, which it can't (the M2 finding). Following FROM_APP #6, I didn't pursue it. Next: M5, a tournament with more entries and forged certificates, plus the smaller certificate approved in #6 (option (a)). I'll reread `FROM_APP.md` first.
+
+- [M5 items from FROM_APP #7, Handled FROM_APP #7] **The generic-lemma certificates (option (a)), two new members, and a 10×10 tournament.** Files: `Diag/CertGen.lean` and `Diag/Tournament.lean`.
+  - **The certificate generator** (untrusted, since it only builds a `Proof`). It works for any mover whose `symRun` gives `ite(check(κ, subst(⌜K⌝, y), F), C, D)`. The small generic lemma is proved once and has no large literals:
+    `L1 :≡ ∀k ∀k' ∀x. k = k' → x = ite(chk(k), C, D) → (x = C ↔ chk(k') = true)`, where `chk(z) := check(κ, subst(z, y), F)`.
+    It is instantiated with `k := ⌜K⌝`, `k' := δ` and `x := run(T, code, [y, κ])`, then discharged with `eval(⌜K⌝ = δ)` and `symRun`.
+    ```lean
+    def memberCert (code : Val) : Proof :=
+      .allI <| .allI <| .impI (boundFm (b 1) L) <| .impI (boundFm (b 0) Kmax) <|
+        .impE (.impE (.allE (.allE (.allE L1pf (.lit Kq)) δ) (.run (natT T) (.lit code) (Tm.list [b 1, b 0])))
+                     (.eval (.lit Kq) δ))
+              (.symRun T code symArgs (.andI (.hyp 1) (.andI (.hyp 0) topPf)))
+    ```
+  - **Before and after** (encoded size, and the checker fuel needed to accept, to 1024 granularity):
+
+    | Entry | Size | Fuel |
+    |---|---|---|
+    | CertBot, M2 hand-written certificate | 44,339 | 156,672 |
+    | **CertBot, generated certificate** | **23,389** | **101,376** |
+    | HelperBot | 23,653 | 102,400 |
+    | LetBot | 23,505 | 102,400 |
+
+    Every large literal (⌜K⌝, δ, the code) now appears exactly once. F and T are unchanged, as asked.
+  - **The new members:**
+    - `helperBot`: `main = toMove(verify(opp, cert))`, with helpers `verify(o, c) = check(c, subst(⌜K⌝, o), F)` and `toMove(x) = if x then C else D`.
+    - `letBot`: `let phi = subst(⌜K⌝, opp) in let ok = check(cert, phi, F) in if ok then C else D`.
+
+    `symEval` inlines the calls and substitutes the `let`s, so both reduce to the same term as CertBot, and `memberCert` certifies them unchanged.
+  - **Non-members.** These are rejected by the checker (generated certificate does not check):
+    - `cacheBot`: cooperates with CertBot's exact code without checking the certificate. `symRun` gives a different term, so it's rejected.
+    - `stingyBot`: checks with fuel F/2.
+    - DefectBot carrying a stolen or forged certificate.
+  - **The tournament matrix** (row's move against each column), in this column order: CertBot(old cert), CertBot(new cert), HelperBot, LetBot, CooperateBot, DefectBot, CacheBot, StingyBot, DefectBot+stolen, DefectBot+forged.
+    ```
+    CertBot(old cert): [C, C, C, C, D, D, D, D, D, D]
+    CertBot(new cert): [C, C, C, C, D, D, D, D, D, D]
+    HelperBot:         [C, C, C, C, D, D, D, D, D, D]
+    LetBot:            [C, C, C, C, D, D, D, D, D, D]
+    CooperateBot:      [C, C, C, C, C, C, C, C, C, C]
+    DefectBot:         [D, D, D, D, D, D, D, D, D, D]
+    CacheBot:          [C, C, C, C, D, D, D, D, D, D]
+    StingyBot:         [D, C, C, C, D, D, D, D, D, D]
+    DefectBot+stolen:  [D, D, D, D, D, D, D, D, D, D]
+    DefectBot+forged:  [D, D, D, D, D, D, D, D, D, D]
+    100 moves in 57 ms (interpreted #eval)
+    ```
+    The members form a cooperating clique and defect on everyone else, as Theorems A and B predict. StingyBot's row shows a non-member's behaviour depending on certificate size: it rejects CertBot's old 157k-fuel certificate under its F/2 budget and accepts the newer ones. That is harmless, because Theorem B protects only members.
+  - **A limitation found while choosing test members.** I wanted a member with the branches swapped, `if eq(check(…), false) then D else C`. S can't certify it yet. From `¬(chk = true)` it can't derive `chk = false`, because S has no axiom saying `check` returns a boolean. A small sound rule would fix this (`boolCases`: `check(…) = true ∨ check(…) = false`, true because `Tm.denote` of `check` is `Val.ofBool …`). It's worth adding before M6, so that LLM-written members can use negated tests. I'm not adding it without a nod.
+  - I haven't built the named-variable front end yet. It isn't needed for these members, because the generator is a Lean function. I'll build it at the start of M6, where the LLM writes certificates.

@@ -17,3 +17,5 @@ import Diag.Sound.SymEval
 import Diag.Sound.Infer
 import Diag.Sound.Axioms
 import Diag.Theorems
+import Diag.CertGen
+import Diag.Tournament
