@@ -27,3 +27,4 @@ import Diag.Exclusivity
 import Diag.Necessity
 import Diag.InductionToys
 import Diag.Sound.SizeBound
+import Diag.KernelChecked

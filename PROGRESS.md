@@ -829,3 +829,36 @@ Claude Code appends here after every meaningful step. The Claude app session rea
 - [Handled FROM_APP #18, acknowledged and on hold] All M8b work is paused, and I won't start α, β or γ. The user is reconsidering what the necessity result is for: which criteria for cooperation are justified, and whether zero exploitability matters given that ε-grounding is already an equilibrium.
   The state of the code: M8b-1 (the induction rules) and M8b-2a (the value cap replaced by the result-size charge, with `eval_sz_le`) are committed, sound, and covered by all tests. Nothing else is in progress. The build is green with 0 warnings, and the working tree is clean.
 - Waiting for the user's decision, which the app will relay as the next item.
+
+- [β done: kernel-checked certification, Handled FROM_APP #19] **Audit item 2 is closed. CertBot's certification, exclusivity's CooperateBot fact and the tournament outcomes are now Lean theorems checked by the kernel.** There's no `#eval`, no `native_decide` and no compiled code in them. M8b-α stays dropped, as decided.
+  - **Feasibility measurement (done first, as asked). The result: no twin or refactor is needed.** With `unseal` on the mutual block (`eval`, `evalList`, `run`, `check`, `evalTm`, `infer`, `symEval`, `symEvalList`), `decide +kernel` makes Lean 4.36's kernel reduce the *existing* well-founded definitions directly. I sanity-checked it first:
+    - `run 100 DefectBot [nil, nil] = some D` is proved, and the same with `C` is *disproved*;
+    - a forged K′ certificate for DefectBot is proved rejected (`= false`).
+
+    | Measurement | Time | Memory |
+    |---|---|---|
+    | CooperateBot's K′ certificate (size 1,721) | 0.34 s | 455 MB |
+    | CertBot's generated certificate (size 23,389, about 106k checker fuel) | 0.61 s | 500 MB |
+    | CertBot vs CertBot by direct game evaluation (two full checks inside the interpreter), plus the full 11×11 M5 matrix | 4.2 s | 830 MB |
+    | The whole new file | 3.8 s | 860 MB |
+
+    `unseal` only lifts the irreducibility attribute for this one file. It changes no definition and adds no axiom, and the kernel checks every reduction step, using the same `run` and `check` as play time.
+  - **The theorems** (`Diag/KernelChecked.lean`):
+    ```lean
+    theorem certBot_certified : Certified certBotNew                 -- generated cert (M5)
+    theorem certBotOld_certified : Certified certBotOld              -- hand-written cert (M2)
+    theorem certBot_vs_certBot : play T certBotNew certBotNew = (.C, .C)       -- via theoremA
+    theorem certBot_vs_certBot_eval : play T certBotNew certBotNew = (.C, .C)  -- direct evaluation
+    theorem coop_hco : check F (coopCertP coopCode).quote (memberP coopCode).quote = true
+    theorem exclusivity_unconditional (c : Val) (ρ : Nat → Val) :
+        ¬ ((member c).denote ρ ∧ (memberP c).denote ρ)
+    theorem m5_matrix : (entries.map fun (_, a) => entries.map fun (_, b) => move T a b) = [[.C, …], …]   -- 11×11
+    theorem mixed_matrix : (entriesP.map fun (_, a) => entriesP.map fun (_, b) => move T a b) = [[…], …]  -- 7×7
+    ```
+    - `exclusivity_unconditional` is the M7 theorem with its hypothesis now discharged by the kernel. So "no code satisfies both K and K′" holds outright.
+    - `m5_matrix` includes the forged and stolen certificates, CacheBot and StingyBot.
+    - `mixed_matrix` includes CertBot vs CertBot′ = (D, D) (the bridging question) and CertBot′ vs CooperateBot = (C, C).
+  - **`#print axioms`.** Each of `certBot_certified`, `certBot_vs_certBot`, `certBot_vs_certBot_eval`, `coop_hco`, `exclusivity_unconditional`, `m5_matrix` and `mixed_matrix` depends on axioms: `[propext, Classical.choice, Quot.sound]`. The clean build has 0 warnings, and the code has no `sorry`/`native_decide`/`axiom`/`implemented_by`.
+  - **Still compiled-only:** the M6 candidates. They are parsed by the untrusted front end (`partial def`s, which the kernel can't unfold), and their verdicts come from the compiled runner. If wanted, a candidate's compiled `Program`/`Proof` could be pasted into Lean as data and kernel-checked the same way.
+
+  [REVIEW] awaiting FROM_APP #20

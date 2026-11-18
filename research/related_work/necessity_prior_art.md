@@ -84,3 +84,11 @@ Fairness needs a proof of length at most p(|B_φ|) that B_φ cooperates whenever
 - an informal 2010 LessWrong comment links shortcutting bounded proof search to P vs NP.
 
 I found no source that states the theorem "fair + unexploitable + polynomial-time implies P = NP," or the B_φ reduction, or the conclusion that feasible unexploitable agents must restrict whom they cooperate with (for example, to opponents that supply certificates). Present it as a simple observation with these citations, not as a deep new result.
+
+## Addendum (2026-11-18): the unconditional diagonal argument ("Contrarian")
+Claim: Contrarian = "run the opponent against me and play the opposite". If agent a always halts and its run against Contrarian has a proof of length ≤ p, then a can't be both p-fair and unexploitable. No P≠NP and no induction: the proof is a trace of a concrete run.
+Prior art found (searched, not exhaustive):
+- Barasz et al. 2014, §5 "Obstacles to Optimality" (informal): a diagonal Y ("cooperate exactly when the opponent is not X") shows no agent is optimal against every opponent; TrollBot shows dominance is impossible among modal agents. Their unbounded FairBot *is* fair and unexploitable, but non-computable. That's consistent with the claim (Contrarian's cooperation becomes a Gödel sentence, true but unprovable).
+- Anderlini 1990 (Theory and Decision, doi:10.1007/BF00134103); Binmore 1987; Canning: no Turing machine always plays a best response. Classic diagonal impossibility for TM players.
+- Critch 2016/2019: G-fair bounded FairBot_k is computable, fair and unexploitable, but its runtime is exponential in its proof bound, so it escapes the argument.
+- Not found stated explicitly: "fair + unexploitable is impossible for computable / fast agents". It's an immediate corollary of standard diagonalization, so treat it as folklore and don't claim it as a contribution.
