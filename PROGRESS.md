@@ -365,3 +365,31 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   1. **As predicted, `infer_sound` never calls `check_sound`.** The `eval` rule's case uses only `evalTm_sound`, which holds by computation, because `evalTm` calls the same `check`/`run` that `Tm.denote` uses. That is the formal sense in which S has no reflection rule.
   2. **One change to `Diag/Check.lean` during M3, with no change in behaviour.** The checker-work computation inside `symOp` is now a separate function, `symWork`, which made the proof's case analysis tractable.
   3. **The proof is by strong induction on fuel throughout** (`Nat.strongRecOn`). `symEval_sound` and the list version are proved together as one conjunction. Next: M4, the Theorems A and B, stated about `play`. I'll reread `FROM_APP.md` first.
+
+- [M4 done] **Theorems A and B are proved about `play` itself, using only the standard axioms.** The file is `Diag/Theorems.lean`. `diag`, K and the substitution lemma were already in `Diag/Standard.lean` (M2):
+  ```lean
+  theorem diag_eval : substV Dfm.quote Dfm.quote = K.quote                 -- δ evaluates to ⌜K⌝
+  theorem subst_K (c : Val) : substV K.quote c = (member c).quote          -- sub(⌜K⌝, c) = ⌜K(c)⌝
+  ```
+  **What K means, as a plain Lean statement** about the one `run` and the one `check`:
+  ```lean
+  theorem member_denote (c : Val) (ρ : Nat → Val) :
+      (member c).denote ρ ↔ ∀ y κ : Val, y.sz ≤ L → κ.sz ≤ Kmax →
+        ((run T c [y, κ]).getD Val.bot = C ↔ check F κ (member y).quote = true)
+  ```
+  **The theorems:**
+  ```lean
+  def Certified (e : Entry) : Prop := check F e.cert (member e.code).quote = true
+
+  theorem theoremA (a b : Entry) (ha : a.ok = true) (hb : b.ok = true)
+      (hca : Certified a) (hcb : Certified b) :
+      play T a b = (.C, .C)
+
+  theorem theoremB (a b : Entry) (hca : Certified a) (h : (play T a b).1 = .C) :
+      (play T a b).2 = .C
+  ```
+  The proof of B: a plays C, so by `member_denote` (from soundness) b's certificate checks. By soundness again, b is a member, so b plays C exactly when a's certificate checks, and it does.
+
+  **`#print axioms`.** Each of `member_denote`, `theoremA` and `theoremB` depends on axioms: `[propext, Classical.choice, Quot.sound]`.
+- [M4 design decision, small, flagged for the app] **Each side now checks the sizes of *both* entries.** `move T me opp = if me.ok && opp.ok then toMove (run …) else .D`; before, it checked only `me.ok`. Without this, Theorem B would fail against oversized opponents. K only speaks about opponents within the caps, so a member could legally cooperate with an oversized entry, which then plays D. With the change, an out-of-spec pairing is D/D. This is a local check by each player, not a referee. Theorem B needs no size hypothesis, and Theorem A only needs both entries to be within the caps. All tournament results are unchanged.
+- [M4 note on the fuel-consistency rule in CLAUDE.md] In this design the fuel-consistency lemma is **general and proved**: it is `symRunCore_sound`. If the checker's computed cost bound, `code.sz + c`, is ≤ the run fuel f, then `run f code args` succeeds and returns the predicted value for every opponent within the bounds. Every membership certificate goes through `symRun`, so it carries this check, and for CertBot it is 287,467 ≤ T = 2^20. A separate kernel-checked lemma for CertBot's concrete numbers would need `decide` to evaluate the well-founded `symEval`, which it can't (the M2 finding). Following FROM_APP #6, I didn't pursue it. Next: M5, a tournament with more entries and forged certificates, plus the smaller certificate approved in #6 (option (a)). I'll reread `FROM_APP.md` first.

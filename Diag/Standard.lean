@@ -18,9 +18,9 @@ open Diag Params
 def C : Val := .sym "C"
 def D : Val := .sym "D"
 
-private def b (i : Nat) : Tm := .bvar i
-private def natT (n : Nat) : Tm := .lit (.nat n)
-private def truT : Tm := .lit Val.tru
+def b (i : Nat) : Tm := .bvar i
+def natT (n : Nat) : Tm := .lit (.nat n)
+def truT : Tm := .lit Val.tru
 
 /-- The formula to diagonalize. Inside the two binders, κ = 0, y = 1, w = 2 and z = 3. -/
 def Dfm : Fm :=

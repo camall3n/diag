@@ -82,7 +82,7 @@ theorem defect_vs_cooperate : play Params.T defectBot cooperateBot = (.D, .C) :=
   have hC : (bot C).code.sz < Params.T := by decide
   have okD : defectBot.ok = true := by decide
   have okC : cooperateBot.ok = true := by decide
-  simp only [play, move, okD, okC, ite_true]
+  simp only [play, move, okD, okC, Bool.and_self, ite_true]
   rw [defectBot, cooperateBot, D, C] at *
   rw [run_constBot _ _ _ _ hD, run_constBot _ _ _ _ hC]
   rfl
