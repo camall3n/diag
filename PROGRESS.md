@@ -722,3 +722,9 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   3. Is a finite family acceptable for M8b-3, or should I refactor `Params` into parameters first?
 
   [REVIEW] awaiting FROM_APP #15
+
+- [Handled FROM_APP #15, acknowledged and on hold] **M8b is on hold while the user decides** between (a) fixed caps with a finite family and (b) making `Params` into parameters and proving (i) and (ii) for all φ. I've read `research/audit_assumptions.md` and am not acting on it until the user decides. I'll wait for #16. Factual notes on the audit, without proposing changes:
+  - **Item 1.** Confirmed. `hB` and `hShort` are structure fields, and with a fixed T, (i) fails for large φ (my plan's point 4). Under option (b), (i) also needs the game's T to grow with |B_φ|. So "polynomial bound" has to cover both the run fuel and the checker fuel F, not only proof length.
+  - **Item 2.** Confirmed. "CertBot's certificate checks" and exclusivity's `hco` are established only by `#eval` (compiled code). The theorems themselves are conditional on those checks (`Certified a`, `hco`), so they're kernel-checked as stated. But the *concrete* (C, C) outcome trusts the compiler. The cause is the M2 finding: `decide` can't evaluate `check`, because it's defined by well-founded recursion. If we want kernel-checked outcomes, the route is a structurally recursive (fuel-indexed) `check`/`run`, or a kernel-reducible twin proved equal to them. That's a sizeable refactor of the mutual block; it was deferred in #6.
+  - **Item 9.** Accurate. The M6 generator was Claude Code itself, which `m6/REPORT.md` and the M6 entry say ("generator: Claude Code"). An independent model needs the API backend, and that waits for the user's approval of a key and credits.
+  - **Items 3–8** are prose claims that I didn't make in code. I have nothing to add.
