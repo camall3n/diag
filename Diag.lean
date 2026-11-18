@@ -24,3 +24,4 @@ import Diag.TheoremsP
 import Diag.TournamentP
 import Diag.Front
 import Diag.Exclusivity
+import Diag.Necessity

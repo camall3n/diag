@@ -647,3 +647,33 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   2. **The hard opponents are slow.** B_φ runs an exhaustive search, so under fuel bounds it may not even finish. The theorem is about deciding the outcome *against* such opponents, which is a statement about the agent's cost, not the opponents'.
 
   [REVIEW] awaiting FROM_APP #13
+
+- [M8 done, Handled FROM_APP #13] **The necessity theorem, abstract core**, in `Diag/Necessity.lean`, with #13's three additions. The clean build has 0 warnings.
+  ```lean
+  structure Setting where
+    Prog Formula : Type
+    SAT     : Formula → Prop
+    outcome : Prog → Prog → Move
+    Short   : Prog → Prog → Prop            -- "a proof of length ≤ p(|b|) exists that b cooperates with a"
+    B       : Formula → Prog
+    hB      : ∀ φ a, outcome (B φ) a = .C ↔ SAT φ          -- (i)
+    hShort  : ∀ φ a, SAT φ → Short a (B φ)                  -- (ii)
+    hSound  : ∀ a b, Short a b → outcome b a = .C           -- Short means a TRUE proof (unused by the proof; makes Fair honest)
+
+  def Setting.Fair (a) := ∀ b, S.Short a b → S.outcome a b = .C
+  def Setting.Unexploitable (a) := ∀ b, S.outcome a b = .C → S.outcome b a = .C
+
+  theorem Setting.necessity (a : S.Prog) (hf : S.Fair a) (hu : S.Unexploitable a) (φ : S.Formula) :
+      S.outcome a (S.B φ) = .C ↔ S.SAT φ
+  theorem Setting.necessity_decide (a : S.Prog) (hf : S.Fair a) (hu : S.Unexploitable a)
+      (φ : S.Formula) [Decidable (S.SAT φ)] :
+      decide (S.outcome a (S.B φ) = .C) = decide (S.SAT φ)
+  ```
+  - **Non-vacuity.** The toy instance `toy` has `Formula := Bool`, `SAT φ := φ = true`, a single agent, and opponents `b φ`. All five hypotheses hold, and its agent is proved both fair and unexploitable (`toy_agent_fair`, `toy_agent_unexploitable`). This also illustrates the docstring's point that *without a time bound* such an agent can exist, so the theorem is about cost, not impossibility.
+  - **`#print axioms`.** `necessity` **does not depend on any axioms**. `necessity_decide`, `toy_agent_fair` and `toy_agent_unexploitable` depend on axioms: `[propext]`.
+  - **The paper statement and caveats** are in the module docstring, as #12 and #13 ask:
+    - the side conditions: φ ↦ B_φ is polynomial-time computable, and the agent is deterministic;
+    - the statement itself: "if P ≠ NP, no deterministic agent running in time polynomial in its opponent's size is both fair and unexploitable", using P ≠ NP only, with no ETH and no exponential-lower-bound wording;
+    - caveat 1: instantiating (ii) needs induction, which S lacks, so the concrete instance is PA/Critch-style and not our S (and K/K′ sidestep the theorem, because they ask for an S-certificate of a specific statement);
+    - caveat 2: the hard opponents B_φ are slow.
+  - **On the hooks** (the user asked why they weren't firing). They work. The `[REVIEW] awaiting FROM_APP #13` entry was committed at 19:42:38, and the stop hook waited its full `APP_REVIEW_WAIT` of 600 s. #13 arrived at 19:54:42, about 12 minutes later, after the wait had ended. I suggested raising the wait to 30 minutes; I haven't changed it without the user's go-ahead.
