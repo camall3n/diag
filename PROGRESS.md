@@ -613,3 +613,37 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   **`#print axioms`.** Each of `check_nil`, `coop_not_member`, `exclusivity` and `exclusivity_entry` depends on axioms: `[propext, Classical.choice, Quot.sound]`. The clean build has 0 warnings.
 
   **For the paper.** Once the inclusive witness (a certified unconditional cooperator) exists, the two standards are mutually exclusive, so no single program can be in both clubs. Bridging therefore has to be designed in explicitly (several certificates per entry, or a joint standard); it can't come for free.
+
+- [M8 plan, the necessity theorem, Handled FROM_APP #12 (plan only; implementation waits for review)] I've updated `CLAUDE.md`: M8 is the necessity theorem, and the old optional items are now M9. This is the planned **abstract** formalization, in a new file `Diag/Necessity.lean`. It is independent of S and DSL, and complexity classes stay on paper.
+  ```lean
+  /-- An abstract open-source game with a family of opponents B_φ indexed by formulas. -/
+  structure Setting where
+    Prog    : Type
+    Formula : Type
+    SAT     : Formula → Prop
+    outcome : Prog → Prog → Move          -- outcome a b = a's move against b
+    /-- "a proof of length ≤ p(|b|) exists that b cooperates with a"; the length bound is
+        built into this predicate, so the polynomial p stays abstract -/
+    Short   : Prog → Prog → Prop
+    B       : Formula → Prog
+    /-- (i) B_φ ignores its opponent: it plays C iff φ is satisfiable -/
+    hB      : ∀ φ a, outcome (B φ) a = .C ↔ SAT φ
+    /-- (ii) satisfiable ⇒ a short proof that B_φ cooperates exists -/
+    hShort  : ∀ φ a, SAT φ → Short a (B φ)
+
+  def Setting.Fair (S : Setting) (a : S.Prog) : Prop :=
+    ∀ b, S.Short a b → S.outcome a b = .C
+  def Setting.Unexploitable (S : Setting) (a : S.Prog) : Prop :=
+    ∀ b, S.outcome a b = .C → S.outcome b a = .C
+
+  /-- **Necessity.** A fair, unexploitable agent's move against B_φ decides SAT(φ). -/
+  theorem Setting.necessity (S : Setting) (a : S.Prog) (hf : S.Fair a) (hu : S.Unexploitable a)
+      (φ : S.Formula) : S.outcome a (S.B φ) = .C ↔ S.SAT φ
+  ```
+  The proof is two lines: (→) unexploitable, then (i); (←) (ii), then fair. I'll also add the corollary in decision form, `decide (outcome a (B φ) = .C) = decide (SAT φ)`, with `Move` deriving `DecidableEq` (already true). That states that "computing a's move against B_φ" computes SAT.
+  **The paper statement**, on paper only, using P ≠ NP and **not ETH** (no "exponential lower bound" wording): if P ≠ NP, then no agent that runs in polynomial time in its opponent's size can be both fair and unexploitable. That is because B_φ has size polynomial in |φ|, and a's move on it would decide SAT.
+  **The two caveats**, which will go verbatim into the docstring:
+  1. **Instantiating (ii) needs induction.** The short proof uses a general lemma, proved once: "if some assignment satisfies φ, the search returns C". That lemma needs induction over the search. **Our S has no induction.** In S, the only proofs that B_φ cooperates go through `eval`/`symRun`, which cost about as much as the search itself. So the concrete instance of `Setting` is PA-style, Critch's setting, **not** our S. Our K and K′ sidestep the theorem because they aren't "fair" in this sense: they require a *certificate in S of a specific statement*, not just the existence of a short proof of cooperation.
+  2. **The hard opponents are slow.** B_φ runs an exhaustive search, so under fuel bounds it may not even finish. The theorem is about deciding the outcome *against* such opponents, which is a statement about the agent's cost, not the opponents'.
+
+  [REVIEW] awaiting FROM_APP #13

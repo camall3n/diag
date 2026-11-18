@@ -46,7 +46,8 @@ These are non-negotiable:
 5. CertBot and its certificate. Tournament: CertBot against itself, DefectBot, CooperateBot, and forged certificates.
 6. LLM loop: varied members plus adversarial attempts. Report certification rate, certificate sizes, and rejections.
 7. Exclusivity theorem (FROM_APP #10): given a K′-certified CooperateBot within the caps, no code satisfies both K and K′ ("K is closed, K′ is open").
-8. Optional: the handed-proof variant, and Lean itself as S (option b). (The one-directional standard K′ is already done.)
+8. Necessity theorem (FROM_APP #12): abstractly, a fair and unexploitable agent decides SAT on the opponents B_φ, so (on paper) if P ≠ NP no polynomial-time agent is both. Use P ≠ NP only; never ETH.
+9. Optional: the handed-proof variant, and Lean itself as S (option b). (The one-directional standard K′ is already done.)
 
 ## Environment
 
