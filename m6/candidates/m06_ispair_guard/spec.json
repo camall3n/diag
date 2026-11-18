@@ -1,0 +1,1 @@
+{"intent": "member", "standard": "K", "description": "branches on isPair(opp) first, then checks in both branches (needs bool-cases on isPair)"}

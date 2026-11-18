@@ -1,0 +1,482 @@
+{
+ "a1_defect_vs_certbot": {
+  "spec": {
+   "intent": "adversarial",
+   "standard": "K",
+   "description": "plays like a member but defects against CertBot exactly; tries the member proof template"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": false,
+    "checker_accepts": false,
+    "within_caps": false,
+    "code_size": 9172,
+    "cert_size": 76552,
+    "proof_nodes": 32,
+    "fuel_needed": null,
+    "reason": "entry over the size caps: code 9172 (cap 16384), cert 76552 (cap 65536); checker verdict on the certificate alone: false",
+    "self_play": "D",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/D",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   },
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": false,
+    "checker_accepts": false,
+    "within_caps": true,
+    "code_size": 9172,
+    "cert_size": 33285,
+    "proof_nodes": 47,
+    "fuel_needed": null,
+    "reason": "rule `mp` rejected; premises prove: [(run(1048576, <literal, size 9172>, pair(#1, pair(#0, nil))) = ite(check(#0, subst(<literal, size 4373>, #1), 262144), C, D) → ((run(1048576, <literal, size 9172>, pair(#1, pair(#0, nil))) = C → check(#0, subst(subst(<literal, size 877>, <literal, size 877>), #1), 262144) = true) ∧ (check(#0, subst(subst(<literal, size 877>, <literal, size 877>), #1), 262144) = true → run(1048576, <literal, size 9172>, pair(#1, pair(#0, nil))) = C))); run(1048576, <literal, size 9172>, pair(#1, pair(#0, nil))) = ite(eq(#1, <literal, size 4553>), D, ite(check(#0, subst(<literal, size 4373>, #1), 262144), C, D))]",
+    "self_play": "D",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 2
+   }
+  ]
+ },
+ "a2_time_waster": {
+  "spec": {
+   "intent": "adversarial",
+   "standard": "K",
+   "description": "spins in a long concrete loop first, so in real play it runs out of fuel and defects against members"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": false,
+    "checker_accepts": false,
+    "within_caps": true,
+    "code_size": 4767,
+    "cert_size": 50122,
+    "proof_nodes": 32,
+    "fuel_needed": null,
+    "reason": "rule `sym-run` rejected (symbolic run of the code failed: unsupported shape, recursion on symbolic data, a size bound above V, or cost bound > 1048576); premises prove: [(lt(sz(#1), 16385) = true ∧ (lt(sz(#0), 65537) = true ∧ (⊥ → ⊥)))]",
+    "self_play": "D",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "a3_coop_claims_K": {
+  "spec": {
+   "intent": "adversarial",
+   "standard": "K",
+   "description": "CooperateBot (cooperates with everyone) claiming K-membership by evaluating the open check term"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": false,
+    "checker_accepts": false,
+    "within_caps": true,
+    "code_size": 44,
+    "cert_size": 4732,
+    "proof_nodes": 18,
+    "fuel_needed": null,
+    "reason": "rule `eval` rejected (terms not closed, evaluation failed, or the values don't match the rule); premises prove: []",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "C/D",
+     "CertBotP": "C/D",
+     "CooperateBot": "C/C",
+     "DefectBot": "C/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "a4_reflection_KP": {
+  "spec": {
+   "intent": "adversarial",
+   "standard": "KP",
+   "description": "DefectBot claims K-prime by rewriting with the opponent certificate hypothesis (a reflection-style shortcut)"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "KP",
+    "accepted": false,
+    "checker_accepts": false,
+    "within_caps": true,
+    "code_size": 44,
+    "cert_size": 1935,
+    "proof_nodes": 14,
+    "fuel_needed": null,
+    "reason": "rule `rw` rejected; premises prove: [check(#0, subst(subst(<literal, size 546>, <literal, size 546>), #1), 262144) = true; run(1048576, <literal, size 44>, pair(#1, pair(#0, nil))) = D]",
+    "self_play": "D",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "a5_exploit_certbotP": {
+  "spec": {
+   "intent": "adversarial",
+   "standard": "KP",
+   "description": "K-prime look-alike that defects against CertBot-prime despite its valid certificate"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "KP",
+    "accepted": false,
+    "checker_accepts": false,
+    "within_caps": true,
+    "code_size": 3690,
+    "cert_size": 17815,
+    "proof_nodes": 20,
+    "fuel_needed": null,
+    "reason": "rule `mp` rejected; premises prove: [(run(1048576, <literal, size 3690>, pair(#1, pair(#0, nil))) = ite(check(#0, subst(<literal, size 1632>, #1), 262144), C, D) → run(1048576, <literal, size 3690>, pair(#1, pair(#0, nil))) = C); run(1048576, <literal, size 3690>, pair(#1, pair(#0, nil))) = ite(eq(#1, <literal, size 1812>), D, ite(check(#0, subst(<literal, size 1632>, #1), 262144), C, D))]",
+    "self_play": "D",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "D/D",
+     "CooperateBot": "C/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "a6_stolen_statement": {
+  "spec": {
+   "intent": "adversarial",
+   "standard": "K",
+   "description": "DefectBot submits a valid proof that CertBot (not itself) is a member"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": false,
+    "checker_accepts": false,
+    "within_caps": true,
+    "code_size": 44,
+    "cert_size": 48838,
+    "proof_nodes": 32,
+    "fuel_needed": null,
+    "reason": "the proof is valid but proves a different statement: ∀.∀.(lt(sz(#1), 16385) = true → (lt(sz(#0), 65537) = true → ((run(1048576, <literal, size 4553>, pair(#1, pair(#0, nil))) = C → check(#0, subst(subst(<literal, size 877>, <literal, size 877>), #1), 262144) = true) ∧ (check(#0, subst(subst(<literal, size 877>, <literal, size 877>), #1), 262144) = true → run(1048576, <literal, size 4553>, pair(#1, pair(#0, nil))) = C))))",
+    "self_play": "D",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "m01_helper_chain": {
+  "spec": {
+   "intent": "member",
+   "standard": "K",
+   "description": "three-level helper chain: main -> decide -> verify/toMove"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": true,
+    "checker_accepts": true,
+    "within_caps": true,
+    "code_size": 4759,
+    "cert_size": 50074,
+    "proof_nodes": 32,
+    "fuel_needed": 164858,
+    "reason": "",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "C/C",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "m02_let_first": {
+  "spec": {
+   "intent": "member",
+   "standard": "K",
+   "description": "computes the check into a let-bound flag before branching"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": true,
+    "checker_accepts": true,
+    "within_caps": true,
+    "code_size": 4613,
+    "cert_size": 49198,
+    "proof_nodes": 32,
+    "fuel_needed": 161929,
+    "reason": "",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "C/C",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "m03_swapped": {
+  "spec": {
+   "intent": "member",
+   "standard": "K",
+   "description": "swapped branches: if eq(check, false) then D else C (needs bool-cases)"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": false,
+    "checker_accepts": true,
+    "within_caps": false,
+    "code_size": 4588,
+    "cert_size": 76437,
+    "proof_nodes": 44,
+    "fuel_needed": 228673,
+    "reason": "entry over the size caps: code 4588 (cap 16384), cert 76437 (cap 65536); checker verdict on the certificate alone: true",
+    "self_play": "D",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/D",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   },
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": true,
+    "checker_accepts": true,
+    "within_caps": true,
+    "code_size": 4588,
+    "cert_size": 25392,
+    "proof_nodes": 59,
+    "fuel_needed": 104090,
+    "reason": "",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "C/C",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 2
+   }
+  ]
+ },
+ "m04_extra_work": {
+  "spec": {
+   "intent": "member",
+   "standard": "K",
+   "description": "does unused bookkeeping (opponent size, a pair) before deciding"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": true,
+    "checker_accepts": true,
+    "within_caps": true,
+    "code_size": 4682,
+    "cert_size": 49612,
+    "proof_nodes": 32,
+    "fuel_needed": 163317,
+    "reason": "",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "C/C",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "m05_computed_fuel": {
+  "spec": {
+   "intent": "member",
+   "standard": "K",
+   "description": "computes the checker fuel with a helper (twice 131072) instead of the literal @F"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": true,
+    "checker_accepts": true,
+    "within_caps": true,
+    "code_size": 4641,
+    "cert_size": 49366,
+    "proof_nodes": 32,
+    "fuel_needed": 162528,
+    "reason": "",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "C/C",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "m06_ispair_guard": {
+  "spec": {
+   "intent": "member",
+   "standard": "K",
+   "description": "branches on isPair(opp) first, then checks in both branches (needs bool-cases on isPair)"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": false,
+    "checker_accepts": false,
+    "within_caps": false,
+    "code_size": 9121,
+    "cert_size": 131618,
+    "proof_nodes": 50,
+    "fuel_needed": null,
+    "reason": "entry over the size caps: code 9121 (cap 16384), cert 131618 (cap 65536); checker verdict on the certificate alone: false",
+    "self_play": "D",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/D",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   },
+   {
+    "status": "ok",
+    "standard": "K",
+    "accepted": true,
+    "checker_accepts": true,
+    "within_caps": true,
+    "code_size": 9121,
+    "cert_size": 48153,
+    "proof_nodes": 72,
+    "fuel_needed": 180449,
+    "reason": "",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "C/C",
+     "CertBotP": "D/D",
+     "CooperateBot": "D/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 2
+   }
+  ]
+ },
+ "p01_respond_helper": {
+  "spec": {
+   "intent": "member",
+   "standard": "KP",
+   "description": "K-prime member: cautious, with a respond helper"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "KP",
+    "accepted": true,
+    "checker_accepts": true,
+    "within_caps": true,
+    "code_size": 1874,
+    "cert_size": 12367,
+    "proof_nodes": 20,
+    "fuel_needed": 38773,
+    "reason": "",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "C/C",
+     "CooperateBot": "C/C",
+     "DefectBot": "D/D"
+    },
+    "attempt": 1
+   }
+  ]
+ },
+ "p02_nil_generous": {
+  "spec": {
+   "intent": "member",
+   "standard": "KP",
+   "description": "K-prime member that also cooperates with anyone presenting a nil certificate (generous, allowed by K-prime)"
+  },
+  "backend": "claude-code",
+  "attempts": [
+   {
+    "status": "ok",
+    "standard": "KP",
+    "accepted": true,
+    "checker_accepts": true,
+    "within_caps": true,
+    "code_size": 1883,
+    "cert_size": 26187,
+    "proof_nodes": 41,
+    "fuel_needed": 76711,
+    "reason": "",
+    "self_play": "C",
+    "moves": {
+     "CertBot": "D/D",
+     "CertBotP": "C/C",
+     "CooperateBot": "C/C",
+     "DefectBot": "C/D"
+    },
+    "attempt": 1
+   }
+  ]
+ }
+}

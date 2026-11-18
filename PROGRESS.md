@@ -555,3 +555,36 @@ Claude Code appends here after every meaningful step. The Claude app session rea
     - **Cross-standard:** CertBot vs CertBot′ is **(D, D)**, as expected. Each checks the other's certificate against its own standard. **This is the bridging open question.** Neither standard recognizes the other's members, even though both are "cooperative". Candidate directions, not implemented: one certificate per standard in an entry; a disjunctive standard ("certified under K or K′"), whose theorems would need redoing; or a translation lemma inside S from K-certificates to K′. Note too that under K′, CooperateBot is exploited by DefectBot. B′ protects only *cautious* members, which is why it carries the `Cautious` hypothesis or a KC certificate.
   - **`#print axioms`, re-run after `boolCases`.** Each of these depends on axioms: `[propext, Classical.choice, Quot.sound]`, the standard three only: `evalTm_sound`, `symEval_sound`, `symRunCore_sound`, `infer_sound`, `check_sound`, `check_member_sound`, `member_denote`, `theoremA`, `theoremB`, `memberP_denote`, `memberC_denote`, `theoremA'`, `theoremB'_sem`, `theoremB'`.
   - Next: M6, starting with the named-variable certificate front end and then the LLM loop. I'll reread `FROM_APP.md` first.
+
+- [M6 done (Claude Code as generator), Handled FROM_APP #11] **The LLM loop with a pluggable backend.** 8/8 members are certified (6 on the first attempt), and 0/6 adversarial candidates are accepted (7 attempts). The full report, with every attempt and every reason, is in `m6/REPORT.md`. The raw verdicts are in `m6/results.json`, unedited.
+  - **The pipeline.** Candidates are plain S-expression data (`m6/candidates/<name>/vN.sexp` plus a `spec.json`), never Lean code, so a candidate can't influence the verdict.
+    - The named-variable front end, `Diag/Front.lean`, is untrusted. Its syntax is documented at the top of the file. It compiles names to de Bruijn indices and documents the sugar it provides (`have`, `sym-run` with named bound hypotheses, `@self`, `@K`, `@delta`, and so on).
+    - The runner `lake exe diagcheck <file> <K|KP>` (`DiagCheck.lean`) asks the one `check` and prints JSON: the verdict, sizes, minimum checker fuel, moves against the reference entries, and a rejection reason. The reason comes from `diagnose`, which locates the innermost proof node `infer` rejects; it explains but never decides.
+    - The loop is `scripts/m6_loop.py`, with backends `claude-code` (the default: I write v1, read the checker's feedback, and write vN+1 only if needed) and `api` (a stub that refuses to run without your approval for a key and credits). `scripts/m6_report.py` builds the table and a round robin over every candidate's final attempt plus the references. Generated entries are labelled `LLM:`.
+  - **A runner bug, found by the tournament and fixed before reporting.** At first "accepted" meant only `check F cert φ = true`. But `m03_swapped` v1 passed `check` with a certificate of size 76,437, over the cap Kmax = 65,536, so in play every pairing with it was out of spec (D/D, even against CooperateBot). Now **certified = checker accepts ∧ entry within the caps**, which is exactly the hypothesis of Theorems A and B. Both parts are reported (`checker_accepts`, `within_caps`), and all results were regenerated after the fix.
+  - **Members**, each written by me as the generator:
+
+    | Candidate | Shape | Attempts | Cert size | Checker fuel |
+    |---|---|---|---|---|
+    | m01 | helper chain | 1 | 50,074 | 164,858 |
+    | m02 | let-bound verdict | 1 | 49,198 | 161,929 |
+    | m03 | swapped branches, uses `bool-cases` | 2 (v1 over the cap; v2 uses a generic lemma) | 25,392 | 104,090 |
+    | m04 | unused bookkeeping | 1 | 49,612 | 163,317 |
+    | m05 | fuel computed by a helper, `(twice 131072)`, folded by `symEval` | 1 | 49,366 | 162,528 |
+    | m06 | redundant `isPair` guard, needs `bool-cases` on `isPair y` | 2 (v1 at 131,618, over the cap; v2 with two generic lemmas) | 48,153 | 180,449 |
+    | p01 (K′) | cautious, `respond` helper | 1 | 12,367 | 38,773 |
+    | p02 (K′) | generous: also cooperates when the opponent's certificate is `nil` | 1 | 26,187 | 76,711 |
+
+  - **Adversaries.** All were rejected, with these reasons from the checker's diagnosis:
+    - `a1`, which defects exactly against CertBot: v1 was over the cap; v2, shrunk to fit, failed at `mp`, because the symbolic run gives `ite(eq(opp, CertBot), D, …)`.
+    - `a2`, which spins 100,000 steps so that it would time out (play D) against members: `sym-run` was rejected (cost bound or checker fuel).
+    - `a3`, CooperateBot claiming K: `eval` on an open term.
+    - `a4`, DefectBot claiming K′ by rewriting with the opponent-certificate hypothesis: `rw` premise mismatch.
+    - `a5`, a K′ look-alike that defects against CertBot′: `mp` premise mismatch.
+    - `a6`, DefectBot carrying a *valid* proof about CertBot: "proves a different statement".
+  - **The 18-entry round robin** is in `m6/REPORT.md`. The K members (6 LLM-written + CertBot) form a C-clique, and so do the K′ members (2 LLM-written + CertBot′). Every rejected adversary is defected against by every member. Where an adversary plays C against members (a1, a3, a5), members still play D against it, so the adversary is the one exploited. **The only member exploited is `p02_nil_generous`, by DefectBot (C/D).** It is K′-certified but deliberately not cautious, which is exactly why Theorem B′ needs `Cautious` or a KC certificate.
+  - **Observations.**
+    1. **Hand-written proofs that follow the "template" are near the cap.** About 49k against Kmax = 65,536, because the big literals (@self, @K) repeat. Twice, my second attempt fixed the cap by switching to generic-lemma proofs. An API generator will probably need the same hint, or the cap could be raised.
+    2. Two of the six programs needed `bool-cases` (m03, m06), so the rule approved in #9 is used in practice.
+    3. A full checker run per candidate takes well under a second. The whole loop over 14 candidates (17 attempts) took about 3 seconds.
+  - Next: M7, the exclusivity theorem (FROM_APP #10).

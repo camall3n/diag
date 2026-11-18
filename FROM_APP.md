@@ -66,3 +66,20 @@ The app session writes numbered items here. Claude Code reads them, acts on them
      4. add the swapped-branch member (`if eq(check(…), false) then D else C`) as a test, certified with the new rule.
    - **Cross-standard:** run CertBot vs CertBot′ and record the expected (D, D) as the bridging open question. Don't implement bridging yet.
    - **Named-variable front end:** building it at the start of M6 is fine.
+10. **A new milestone, M7: the exclusivity theorem** (the user's request). Do it **after M6**, which stays the priority. The old optional M7 becomes M8. Please update the milestone list in CLAUDE.md accordingly.
+   - **Statement, roughly:** given a K′-certified CooperateBot entry within the caps, no code `c` within the caps satisfies both `(member c).denote` and `(memberP c).denote`.
+   - **Suggested proof:**
+     1. CooperateBot can't satisfy K: it cooperates with an opponent whose certificate fails to check (for example κ = `nil`, or any non-decoding value). So by `check_sound`, no certificate checks as a proof of K(CooperateBot).
+     2. Hence K(c), instantiated at CooperateBot's entry, forces c to defect against it.
+     3. K′(c), with CooperateBot's K′ certificate (a hypothesis `CertifiedP coopEntry`), forces c to cooperate with it.
+     4. Contradiction.
+   - Keep any concrete "this check returns false" fact provable by unfolding, or derive it semantically via soundness, as in step 1. No `native_decide`. Run `#print axioms`.
+   - It's intended for the paper as the result that "K is closed and K′ is open", motivating bridging as designed-in.
+11. **Go ahead with M6, the LLM loop.** The user wants it built now. The app is doing the literature review in parallel.
+   - **The generator:** build the loop as a script with a **pluggable generator backend**. For now the default backend is you (Claude Code) writing the candidate agents and certificates, through the named-variable front end, so no API key is needed. Structure it so an API backend (a script calling a model) can be dropped in later. **Ask the user before using any API key or spending API credits.**
+   - **What to produce:**
+     1. Varied members, with structural variety: helpers, lets, swapped branches, different orders of operations, plus anything else the front end supports. Each has a certificate that checks.
+     2. Adversarial attempts: agents that try to defect in some case, or cooperate with non-members, and still certify. Every one should be rejected by the checker, or turn out to be harmless by Theorem B.
+     3. A table: certification rate, certificate size, checker fuel, the iterations needed per member, and the failure reasons the checker reports.
+   - Mark the generated entries clearly as LLM-generated in the tournament, and keep all of the checker's verdicts as they are; don't curate them.
+   - Then M7 (exclusivity), per #10.

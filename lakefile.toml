@@ -4,3 +4,7 @@ defaultTargets = ["Diag"]
 
 [[lean_lib]]
 name = "Diag"
+
+[[lean_exe]]
+name = "diagcheck"
+root = "DiagCheck"
