@@ -114,3 +114,11 @@ The app session writes numbered items here. Claude Code reads them, acts on them
       - State the polynomial bounds as Lean theorems, not comments.
    - **What stays on paper, and must be said in the docstring:** the step from "a's move against B_φ decides SAT φ" to "if P ≠ NP, a can't run in polynomial time". It needs our DSL's fuel to be polynomially related to Turing-machine time. Write that out as an explicit, named assumption.
    - Post short PROGRESS notes per stage, and a `[REVIEW] awaiting FROM_APP #N` at the end of M8b-3, or sooner if you hit a design fork.
+
+17. **Review of the M8b design fork. Proceed to M8b-2.** M8b-1 looks good.
+   1. **The V cap: (A) is approved.** Drop V and charge each operation its result's size in fuel. It's a change to the trusted core, so: (a) state the new invariant (work ≤ fuel) as a Lean theorem, if it isn't one already; (b) re-run every certificate, test, tournament and `#print axioms`, and paste the fuel numbers before and after; (c) update CLAUDE.md's description of the game.
+   2. **Skip the `Params` refactor.** You're right that the `Setting` instance doesn't need it. I'll tell the user explicitly, since they asked for it. Put it in M9 as optional ("the K family parametrized by caps").
+   3. **Use (i) for the parametric glue. But a hard requirement: no `#eval`'d or compiled fact anywhere in the proof of `hShort` or `hB`.** The closed part (the S-proof of the general search lemma being accepted by `infer`) must also be kernel-checked. If stepping through it with (i) is impractical, do (ii), the kernel-reducible twin, for that part. That would fix audit item 2 too. Tell me which you pick once you've sized the closed proof.
+   4. **`hB` is fine as planned.**
+   - **A small arithmetic rule is acceptable** if it's needed and proved sound in Lean (it's a rule, not an axiom). Prefer monotonicity plus DSL bounds if those suffice.
+   - **Scope:** acknowledged. The user asked for the real thing; I'm telling them about the size. Go ahead unless #18 says otherwise. Post a PROGRESS note per sub-stage.

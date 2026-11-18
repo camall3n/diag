@@ -67,7 +67,7 @@
     "cert_size": 50122,
     "proof_nodes": 32,
     "fuel_needed": null,
-    "reason": "rule `sym-run` rejected (symbolic run of the code failed: unsupported shape, recursion on symbolic data, a size bound above V, or cost bound > 1048576); premises prove: [(lt(sz(#1), 16385) = true ∧ (lt(sz(#0), 65537) = true ∧ (⊥ → ⊥)))]",
+    "reason": "rule `sym-run` rejected (symbolic run of the code failed: unsupported shape, recursion on symbolic data, or cost bound > 1048576); premises prove: [(lt(sz(#1), 16385) = true ∧ (lt(sz(#0), 65537) = true ∧ (⊥ → ⊥)))]",
     "self_play": "D",
     "moves": {
      "CertBot": "D/D",
@@ -216,7 +216,7 @@
     "code_size": 4759,
     "cert_size": 50074,
     "proof_nodes": 32,
-    "fuel_needed": 164858,
+    "fuel_needed": 169231,
     "reason": "",
     "self_play": "C",
     "moves": {
@@ -246,7 +246,7 @@
     "code_size": 4613,
     "cert_size": 49198,
     "proof_nodes": 32,
-    "fuel_needed": 161929,
+    "fuel_needed": 166302,
     "reason": "",
     "self_play": "C",
     "moves": {
@@ -276,7 +276,7 @@
     "code_size": 4588,
     "cert_size": 76437,
     "proof_nodes": 44,
-    "fuel_needed": 228673,
+    "fuel_needed": 233057,
     "reason": "entry over the size caps: code 4588 (cap 16384), cert 76437 (cap 65536); checker verdict on the certificate alone: true",
     "self_play": "D",
     "moves": {
@@ -296,7 +296,7 @@
     "code_size": 4588,
     "cert_size": 25392,
     "proof_nodes": 59,
-    "fuel_needed": 104090,
+    "fuel_needed": 108474,
     "reason": "",
     "self_play": "C",
     "moves": {
@@ -326,7 +326,7 @@
     "code_size": 4682,
     "cert_size": 49612,
     "proof_nodes": 32,
-    "fuel_needed": 163317,
+    "fuel_needed": 167690,
     "reason": "",
     "self_play": "C",
     "moves": {
@@ -356,7 +356,7 @@
     "code_size": 4641,
     "cert_size": 49366,
     "proof_nodes": 32,
-    "fuel_needed": 162528,
+    "fuel_needed": 166920,
     "reason": "",
     "self_play": "C",
     "moves": {
@@ -406,7 +406,7 @@
     "code_size": 9121,
     "cert_size": 48153,
     "proof_nodes": 72,
-    "fuel_needed": 180449,
+    "fuel_needed": 184822,
     "reason": "",
     "self_play": "C",
     "moves": {
@@ -436,7 +436,7 @@
     "code_size": 1874,
     "cert_size": 12367,
     "proof_nodes": 20,
-    "fuel_needed": 38773,
+    "fuel_needed": 40405,
     "reason": "",
     "self_play": "C",
     "moves": {
@@ -466,7 +466,7 @@
     "code_size": 1883,
     "cert_size": 26187,
     "proof_nodes": 41,
-    "fuel_needed": 76711,
+    "fuel_needed": 78343,
     "reason": "",
     "self_play": "C",
     "moves": {

@@ -29,14 +29,14 @@ theorem dite_pos' {c : Prop} [Decidable c] {α : Sort _} {t : c → α} {e : ¬c
     dite c t e = t h := by simp [h]
 
 theorem spendOp_eq {n : Nat} (o : Op) (vs : List Val) (m : Fin n)
-    (h1 : (o.applyPure vs).2 ≤ m.val) (h2 : (o.applyPure vs).1.sz ≤ Params.V) :
+    (h1 : (o.applyPure vs).2 + (o.applyPure vs).1.sz ≤ m.val) :
     ∃ k : Fin n, spendOp o vs m = some ((o.applyPure vs).1, k) ∧
-      k.val = m.val - (o.applyPure vs).2 := by
+      k.val = m.val - ((o.applyPure vs).2 + (o.applyPure vs).1.sz) := by
   unfold spendOp
   rcases hap : o.applyPure vs with ⟨v, c⟩
-  rw [hap] at h1 h2
-  simp only at h1 h2 ⊢
-  rw [dite_pos' ⟨h1, h2⟩]
+  rw [hap] at h1
+  simp only at h1 ⊢
+  rw [dite_pos' h1]
   exact ⟨_, rfl, rfl⟩
 
 /-- `symEval_sound`, in the form proved by induction. -/
@@ -106,13 +106,12 @@ theorem symEval_sound_all (p : Program) (ρ : Nat → Val) :
           have hf : f ≤ rem1.val := by omega
           rw [dite_pos' hf]
           exact ⟨⟨rem1.val - f, by omega⟩, by simp [hden], by simp; omega, hrok⟩
-        · obtain ⟨hden, hcost, hrok, hbV⟩ := symOp_pure ρ hop hok hcc
+        · obtain ⟨hden, hcost, hrok⟩ := symOp_pure ρ hop hok hcc
           split
           · rename_i pv φv f heq
             exact absurd ⟨rfl, pv, φv, f, heq⟩ hcc
           · rename_i o' _ _ _
             obtain ⟨k, hk, hkv⟩ := spendOp_eq o' (args.map (SV.den ρ)) rem1 (by omega)
-              (by rw [hden]; exact Nat.le_trans hrok hbV)
             rw [hk, hden]
             exact ⟨k, rfl, by omega, hrok⟩
       · contradiction

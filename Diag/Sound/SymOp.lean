@@ -102,7 +102,8 @@ theorem symOp_pure {o : Op} {args : List SV} {r : SV} {c w : Nat} (ρ : Nat → 
     (h : symOp o args = some ((r, c), w)) (hok : ∀ a ∈ args, a.ok ρ)
     (hnc : ¬ OpCheckCase o (args.map (SV.den ρ))) :
     (o.applyPure (args.map (SV.den ρ))).1 = r.t.denote ρ ∧
-    (o.applyPure (args.map (SV.den ρ))).2 ≤ c ∧ r.ok ρ ∧ r.b ≤ Params.V := by
+    (o.applyPure (args.map (SV.den ρ))).2 + (o.applyPure (args.map (SV.den ρ))).1.sz ≤ c ∧
+    r.ok ρ := by
   unfold symOp at h
   split at h
   · -- all literal: computed
@@ -112,24 +113,56 @@ theorem symOp_pure {o : Op} {args : List SV} {r : SV} {c w : Nat} (ρ : Nat → 
     rw [mapM_lit? args vs hvs' ρ]
     rcases hap : o.applyPure vs with ⟨v, c0⟩
     rw [hap] at h
-    simp only at h
-    split at h
-    · rename_i hV
-      simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨⟨rfl, rfl⟩, -⟩ := h
-      exact ⟨by simp [Tm.denote], Nat.le_refl _, by simp [SV.ok, Tm.denote], hV⟩
-    · contradiction
+    simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨⟨rfl, rfl⟩, -⟩ := h
+    exact ⟨by simp [Tm.denote], Nat.le_refl _, by simp [SV.ok, Tm.denote]⟩
   · -- symbolic
     split at h
     · rename_i hlen
       split at h
       · rename_i t b c' ht hb hc'
-        split at h
-        · rename_i hbV
-          simp only [Option.some.injEq, Prod.mk.injEq] at h
-          obtain ⟨⟨rfl, rfl⟩, -⟩ := h
-          refine ⟨?_, ?_, ?_, hbV⟩
-          · -- denotation
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨⟨rfl, rfl⟩, -⟩ := h
+        have hden : (o.applyPure (args.map (SV.den ρ))).1 = Tm.denote ρ t := by
+          match args, ht with
+          | [a], ht => simp [opTm] at ht; subst ht; simp [Tm.denote, SV.den]
+          | [a, b'], ht => simp [opTm] at ht; subst ht; simp [Tm.denote, SV.den]
+          | [a, b', e], ht =>
+            simp [opTm] at ht; subst ht
+            simp only [Tm.denote, List.map]
+            split
+            · exact absurd ⟨rfl, a.t.denote ρ, b'.t.denote ρ, _, by simp [SV.den]; assumption⟩ hnc
+            · rfl
+        have hcost : (o.applyPure (args.map (SV.den ρ))).2 ≤ c' := by
+          match o, args, hc' with
+          | .eq, [a, b'], hc' | .plus, [a, b'], hc' | .minus, [a, b'], hc' | .lt, [a, b'], hc' =>
+            simp [opCost] at hc'; subst hc'
+            have := hok a (by simp); have := hok b' (by simp)
+            simp [Op.applyPure, SV.ok, SV.den] at *; omega
+          | .subst, [a, b'], hc' =>
+            simp [opCost] at hc'; subst hc'
+            have := hok a (by simp); have := hok b' (by simp)
+            simp [Op.applyPure, SV.ok, SV.den] at *; omega
+          | .check, [a, b', e], hc' =>
+            simp only [Op.applyPure]
+            omega
+          | .pair, [a, b'], _ | .fst, [a], _ | .snd, [a], _ | .isPair, [a], _
+          | .isNat, [a], _ | .sz, [a], _ => simp [Op.applyPure]
+          | .eq, [], _ | .eq, [_], _ | .eq, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
+          | .pair, [], _ | .pair, [_], _ | .pair, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
+          | .plus, [], _ | .plus, [_], _ | .plus, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
+          | .minus, [], _ | .minus, [_], _ | .minus, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
+          | .lt, [], _ | .lt, [_], _ | .lt, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
+          | .subst, [], _ | .subst, [_], _ | .subst, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
+          | .fst, [], _ | .fst, _ :: _ :: _, _ => simp [Op.applyPure]
+          | .snd, [], _ | .snd, _ :: _ :: _, _ => simp [Op.applyPure]
+          | .isPair, [], _ | .isPair, _ :: _ :: _, _ => simp [Op.applyPure]
+          | .isNat, [], _ | .isNat, _ :: _ :: _, _ => simp [Op.applyPure]
+          | .sz, [], _ | .sz, _ :: _ :: _, _ => simp [Op.applyPure]
+          | .check, _, _ => simp [Op.applyPure]
+        have hsize : SV.ok ρ ⟨t, b⟩ := by
+          simp only [SV.ok]
+          have hden : (o.applyPure (args.map (SV.den ρ))).1 = t.denote ρ := by
             match args, ht with
             | [a], ht => simp [opTm] at ht; subst ht; simp [Tm.denote, SV.den]
             | [a, b'], ht => simp [opTm] at ht; subst ht; simp [Tm.denote, SV.den]
@@ -139,93 +172,57 @@ theorem symOp_pure {o : Op} {args : List SV} {r : SV} {c w : Nat} (ρ : Nat → 
               split
               · exact absurd ⟨rfl, a.t.denote ρ, b'.t.denote ρ, _, by simp [SV.den]; assumption⟩ hnc
               · rfl
-          · -- cost
-            match o, args, hc' with
-            | .eq, [a, b'], hc' | .plus, [a, b'], hc' | .minus, [a, b'], hc' | .lt, [a, b'], hc' =>
-              simp [opCost] at hc'; subst hc'
-              have := hok a (by simp); have := hok b' (by simp)
-              simp [Op.applyPure, SV.ok, SV.den] at *; omega
-            | .subst, [a, b'], hc' =>
-              simp [opCost] at hc'; subst hc'
-              have := hok a (by simp); have := hok b' (by simp)
-              simp [Op.applyPure, SV.ok, SV.den] at *; omega
-            | .check, [a, b', e], hc' =>
-              simp only [Op.applyPure]
-              omega
-            | .pair, [a, b'], _ | .fst, [a], _ | .snd, [a], _ | .isPair, [a], _
-            | .isNat, [a], _ | .sz, [a], _ => simp [Op.applyPure]
-            | .eq, [], _ | .eq, [_], _ | .eq, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
-            | .pair, [], _ | .pair, [_], _ | .pair, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
-            | .plus, [], _ | .plus, [_], _ | .plus, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
-            | .minus, [], _ | .minus, [_], _ | .minus, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
-            | .lt, [], _ | .lt, [_], _ | .lt, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
-            | .subst, [], _ | .subst, [_], _ | .subst, _ :: _ :: _ :: _, _ => simp [Op.applyPure]
-            | .fst, [], _ | .fst, _ :: _ :: _, _ => simp [Op.applyPure]
-            | .snd, [], _ | .snd, _ :: _ :: _, _ => simp [Op.applyPure]
-            | .isPair, [], _ | .isPair, _ :: _ :: _, _ => simp [Op.applyPure]
-            | .isNat, [], _ | .isNat, _ :: _ :: _, _ => simp [Op.applyPure]
-            | .sz, [], _ | .sz, _ :: _ :: _, _ => simp [Op.applyPure]
-            | .check, _, _ => simp [Op.applyPure]
-          · -- size
-            simp only [SV.ok]
-            have hden : (o.applyPure (args.map (SV.den ρ))).1 = t.denote ρ := by
-              match args, ht with
-              | [a], ht => simp [opTm] at ht; subst ht; simp [Tm.denote, SV.den]
-              | [a, b'], ht => simp [opTm] at ht; subst ht; simp [Tm.denote, SV.den]
-              | [a, b', e], ht =>
-                simp [opTm] at ht; subst ht
-                simp only [Tm.denote, List.map]
-                split
-                · exact absurd ⟨rfl, a.t.denote ρ, b'.t.denote ρ, _, by simp [SV.den]; assumption⟩ hnc
-                · rfl
-            rw [← hden]
-            match o, args, hb with
-            | .eq, [a, b'], hb | .lt, [a, b'], hb =>
-              simp [opBound] at hb; subst hb; simp only [Op.applyPure]; exact Val.sz_ofBool _
-            | .isPair, [a], hb | .isNat, [a], hb =>
-              simp [opBound] at hb; subst hb; simp only [Op.applyPure]; exact Val.sz_ofBool _
-            | .check, [a, b', e], hb =>
-              simp [opBound] at hb; subst hb; simp only [Op.applyPure]; decide
-            | .pair, [a, b'], hb =>
-              simp [opBound] at hb; subst hb
-              have := hok a (by simp); have := hok b' (by simp)
-              simp [Op.applyPure, SV.ok, SV.den] at *; omega
-            | .fst, [a], hb =>
-              simp [opBound] at hb; subst hb
-              exact sz_fst_le _ _ (hok a (by simp))
-            | .snd, [a], hb =>
-              simp [opBound] at hb; subst hb
-              exact sz_snd_le _ _ (hok a (by simp))
-            | .plus, [a, b'], hb =>
-              simp [opBound] at hb; subst hb
-              exact sz_plus_le _ _ _ _ (hok a (by simp)) (hok b' (by simp))
-            | .minus, [a, b'], hb =>
-              simp [opBound] at hb; subst hb
-              exact sz_minus_le _ _ _ (hok a (by simp))
-            | .sz, [a], hb =>
-              simp [opBound] at hb; subst hb
-              exact sz_sz_le _ _ (hok a (by simp))
-            | .subst, [⟨.lit φ, ba⟩, b'], hb =>
-              simp [opBound] at hb; subst hb
-              exact substV_sz_le _ _ _ (hok b' (by simp))
-            | .subst, [⟨.bvar _, _⟩, _], hb | .subst, [⟨.op1 _ _, _⟩, _], hb
-            | .subst, [⟨.op2 _ _ _, _⟩, _], hb | .subst, [⟨.op3 _ _ _ _, _⟩, _], hb
-            | .subst, [⟨.ite _ _ _, _⟩, _], hb | .subst, [⟨.run _ _ _, _⟩, _], hb =>
-              simp [opBound] at hb
-            | .eq, [], hb | .eq, [_], hb | .eq, _ :: _ :: _ :: _, hb => simp [opBound] at hb
-            | .lt, [], hb | .lt, [_], hb | .lt, _ :: _ :: _ :: _, hb => simp [opBound] at hb
-            | .pair, [], hb | .pair, [_], hb | .pair, _ :: _ :: _ :: _, hb => simp [opBound] at hb
-            | .plus, [], hb | .plus, [_], hb | .plus, _ :: _ :: _ :: _, hb => simp [opBound] at hb
-            | .minus, [], hb | .minus, [_], hb | .minus, _ :: _ :: _ :: _, hb => simp [opBound] at hb
-            | .subst, [], hb | .subst, [_], hb | .subst, _ :: _ :: _ :: _, hb => simp [opBound] at hb
-            | .isPair, [], hb | .isPair, _ :: _ :: _, hb => simp [opBound] at hb
-            | .isNat, [], hb | .isNat, _ :: _ :: _, hb => simp [opBound] at hb
-            | .fst, [], hb | .fst, _ :: _ :: _, hb => simp [opBound] at hb
-            | .snd, [], hb | .snd, _ :: _ :: _, hb => simp [opBound] at hb
-            | .sz, [], hb | .sz, _ :: _ :: _, hb => simp [opBound] at hb
-            | .check, [], hb | .check, [_], hb | .check, [_, _], hb
-            | .check, _ :: _ :: _ :: _ :: _, hb => simp [opBound] at hb
-        · contradiction
+          rw [← hden]
+          match o, args, hb with
+          | .eq, [a, b'], hb | .lt, [a, b'], hb =>
+            simp [opBound] at hb; subst hb; simp only [Op.applyPure]; exact Val.sz_ofBool _
+          | .isPair, [a], hb | .isNat, [a], hb =>
+            simp [opBound] at hb; subst hb; simp only [Op.applyPure]; exact Val.sz_ofBool _
+          | .check, [a, b', e], hb =>
+            simp [opBound] at hb; subst hb; simp only [Op.applyPure]; decide
+          | .pair, [a, b'], hb =>
+            simp [opBound] at hb; subst hb
+            have := hok a (by simp); have := hok b' (by simp)
+            simp [Op.applyPure, SV.ok, SV.den] at *; omega
+          | .fst, [a], hb =>
+            simp [opBound] at hb; subst hb
+            exact sz_fst_le _ _ (hok a (by simp))
+          | .snd, [a], hb =>
+            simp [opBound] at hb; subst hb
+            exact sz_snd_le _ _ (hok a (by simp))
+          | .plus, [a, b'], hb =>
+            simp [opBound] at hb; subst hb
+            exact sz_plus_le _ _ _ _ (hok a (by simp)) (hok b' (by simp))
+          | .minus, [a, b'], hb =>
+            simp [opBound] at hb; subst hb
+            exact sz_minus_le _ _ _ (hok a (by simp))
+          | .sz, [a], hb =>
+            simp [opBound] at hb; subst hb
+            exact sz_sz_le _ _ (hok a (by simp))
+          | .subst, [⟨.lit φ, ba⟩, b'], hb =>
+            simp [opBound] at hb; subst hb
+            exact substV_sz_le _ _ _ (hok b' (by simp))
+          | .subst, [⟨.bvar _, _⟩, _], hb | .subst, [⟨.op1 _ _, _⟩, _], hb
+          | .subst, [⟨.op2 _ _ _, _⟩, _], hb | .subst, [⟨.op3 _ _ _ _, _⟩, _], hb
+          | .subst, [⟨.ite _ _ _, _⟩, _], hb | .subst, [⟨.run _ _ _, _⟩, _], hb =>
+            simp [opBound] at hb
+          | .eq, [], hb | .eq, [_], hb | .eq, _ :: _ :: _ :: _, hb => simp [opBound] at hb
+          | .lt, [], hb | .lt, [_], hb | .lt, _ :: _ :: _ :: _, hb => simp [opBound] at hb
+          | .pair, [], hb | .pair, [_], hb | .pair, _ :: _ :: _ :: _, hb => simp [opBound] at hb
+          | .plus, [], hb | .plus, [_], hb | .plus, _ :: _ :: _ :: _, hb => simp [opBound] at hb
+          | .minus, [], hb | .minus, [_], hb | .minus, _ :: _ :: _ :: _, hb => simp [opBound] at hb
+          | .subst, [], hb | .subst, [_], hb | .subst, _ :: _ :: _ :: _, hb => simp [opBound] at hb
+          | .isPair, [], hb | .isPair, _ :: _ :: _, hb => simp [opBound] at hb
+          | .isNat, [], hb | .isNat, _ :: _ :: _, hb => simp [opBound] at hb
+          | .fst, [], hb | .fst, _ :: _ :: _, hb => simp [opBound] at hb
+          | .snd, [], hb | .snd, _ :: _ :: _, hb => simp [opBound] at hb
+          | .sz, [], hb | .sz, _ :: _ :: _, hb => simp [opBound] at hb
+          | .check, [], hb | .check, [_], hb | .check, [_, _], hb
+          | .check, _ :: _ :: _ :: _ :: _, hb => simp [opBound] at hb
+        refine ⟨hden, ?_, hsize⟩
+        simp only [SV.ok] at hsize
+        rw [hden]
+        omega
       · contradiction
     · contradiction
 
@@ -247,8 +244,8 @@ theorem symOp_check {args : List SV} {r : SV} {c w : Nat} (ρ : Nat → Val)
     | lit ev =>
       simp [SV.den, Tm.denote] at he; subst he
       simp [opBound, opCost] at h
-      obtain ⟨-, ⟨rfl, rfl⟩, -⟩ := h
-      refine ⟨?_, Nat.le_refl _, ?_⟩
+      obtain ⟨⟨rfl, rfl⟩, -⟩ := h
+      refine ⟨?_, by omega, ?_⟩
       · simp [Tm.denote, SV.den] at ha hb ⊢; rw [ha, hb]
       · simp only [SV.ok]; exact Val.sz_ofBool _
     | bvar _ | op1 _ _ | op2 _ _ _ | op3 _ _ _ _ | ite _ _ _ | run _ _ _ =>

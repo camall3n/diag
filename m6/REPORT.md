@@ -14,14 +14,14 @@ Reasons come from the untrusted `diagnose` (explanations only).
 | a4_reflection_KP | adversarial | KP | 1 | rejected | 1935 | 14 |  | D | D/D | D/D | D/C | D/D |
 | a5_exploit_certbotP | adversarial | KP | 1 | rejected | 17815 | 20 |  | D | D/D | D/D | C/C | D/D |
 | a6_stolen_statement | adversarial | K | 1 | rejected | 48838 | 32 |  | D | D/D | D/D | D/C | D/D |
-| m01_helper_chain | member | K | 1 | ACCEPTED | 50074 | 32 | 164858 | C | C/C | D/D | D/C | D/D |
-| m02_let_first | member | K | 1 | ACCEPTED | 49198 | 32 | 161929 | C | C/C | D/D | D/C | D/D |
-| m03_swapped | member | K | 2 | ACCEPTED | 25392 | 59 | 104090 | C | C/C | D/D | D/C | D/D |
-| m04_extra_work | member | K | 1 | ACCEPTED | 49612 | 32 | 163317 | C | C/C | D/D | D/C | D/D |
-| m05_computed_fuel | member | K | 1 | ACCEPTED | 49366 | 32 | 162528 | C | C/C | D/D | D/C | D/D |
-| m06_ispair_guard | member | K | 2 | ACCEPTED | 48153 | 72 | 180449 | C | C/C | D/D | D/C | D/D |
-| p01_respond_helper | member | KP | 1 | ACCEPTED | 12367 | 20 | 38773 | C | D/D | C/C | C/C | D/D |
-| p02_nil_generous | member | KP | 1 | ACCEPTED | 26187 | 41 | 76711 | C | D/D | C/C | C/C | C/D |
+| m01_helper_chain | member | K | 1 | ACCEPTED | 50074 | 32 | 169231 | C | C/C | D/D | D/C | D/D |
+| m02_let_first | member | K | 1 | ACCEPTED | 49198 | 32 | 166302 | C | C/C | D/D | D/C | D/D |
+| m03_swapped | member | K | 2 | ACCEPTED | 25392 | 59 | 108474 | C | C/C | D/D | D/C | D/D |
+| m04_extra_work | member | K | 1 | ACCEPTED | 49612 | 32 | 167690 | C | C/C | D/D | D/C | D/D |
+| m05_computed_fuel | member | K | 1 | ACCEPTED | 49366 | 32 | 166920 | C | C/C | D/D | D/C | D/D |
+| m06_ispair_guard | member | K | 2 | ACCEPTED | 48153 | 72 | 184822 | C | C/C | D/D | D/C | D/D |
+| p01_respond_helper | member | KP | 1 | ACCEPTED | 12367 | 20 | 40405 | C | D/D | C/C | C/C | D/D |
+| p02_nil_generous | member | KP | 1 | ACCEPTED | 26187 | 41 | 78343 | C | D/D | C/C | C/C | C/D |
 
 Moves are shown as (candidate's move)/(opponent's move).
 
@@ -31,7 +31,7 @@ Moves are shown as (candidate's move)/(opponent's move).
   - v1: rejected: entry over the size caps: code 9172 (cap 16384), cert 76552 (cap 65536); checker verdict on the certificate alone: false
   - v2: rejected: rule `mp` rejected; premises prove: [(run(1048576, <literal, size 9172>, pair(#1, pair(#0, nil))) = ite(check(#0, subst(<literal, size 4373>, #1), 262144), C, D) → ((run(1048576, <literal, size 9172>, pair(#1, pair(#0, nil))) = C → check(#0, subst(subst(<literal, size 877>, <literal, size 877>), #1), 262144) = true) ∧ (check(#0, subst(subst(<literal, size 877>, <literal, size 877>), #1), 262144) =
 - **a2_time_waster** (spins in a long concrete loop first, so in real play it runs out of fuel and defects against members)
-  - v1: rejected: rule `sym-run` rejected (symbolic run of the code failed: unsupported shape, recursion on symbolic data, a size bound above V, or cost bound > 1048576); premises prove: [(lt(sz(#1), 16385) = true ∧ (lt(sz(#0), 65537) = true ∧ (⊥ → ⊥)))]
+  - v1: rejected: rule `sym-run` rejected (symbolic run of the code failed: unsupported shape, recursion on symbolic data, or cost bound > 1048576); premises prove: [(lt(sz(#1), 16385) = true ∧ (lt(sz(#0), 65537) = true ∧ (⊥ → ⊥)))]
 - **a3_coop_claims_K** (CooperateBot (cooperates with everyone) claiming K-membership by evaluating the open check term)
   - v1: rejected: rule `eval` rejected (terms not closed, evaluation failed, or the values don't match the rule); premises prove: []
 - **a4_reflection_KP** (DefectBot claims K-prime by rewriting with the opponent certificate hypothesis (a reflection-style shortcut))

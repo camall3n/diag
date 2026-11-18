@@ -14,8 +14,8 @@ import Diag.Params
 Every evaluation step costs 1 and leftover fuel is threaded through, so total work
 is bounded by the fuel. Operations whose real cost depends on data size (`eq`,
 arithmetic, and later `subst`) are charged the sizes of their arguments, and every
-result is capped at `Params.V`. So no program, and no certificate evaluated by the
-checker, can do much more real work than its fuel.
+result is charged its own size (no fixed cap since M8b). So no program, and no certificate
+evaluated by the checker, can do much more real work than its fuel.
 -/
 
 namespace Diag
@@ -36,8 +36,7 @@ def Val.bot : Val := .sym "⊥"
 
 /-- **Total** semantics of the primitive operations, apart from `check` (⚑0): the result,
 plus an extra cost on top of the 1-step base cost. Wrong arities and wrong types give
-default values (`nil`, `false`, 0), so DSL programs fail only by running out of fuel or
-exceeding the size cap `V`.
+default values (`nil`, `false`, 0), so DSL programs fail only by running out of fuel.
 
 `check` is not routed here when it has 3 arguments and a numeric fuel: `eval` (Check.lean)
 and `Tm.denote` (M3) call the real checker. Every other use of `check` gives `false`. -/

@@ -6,7 +6,7 @@ We are building a small, fully honest demo of this claim: given a standard agree
 
 The design is **option (a)** in `research/demo_design.md`. Read it first. In short:
 
-- **A tiny DSL** with a fuel-bounded interpreter `run`, which is a total Lean function.
+- **A tiny DSL** with a fuel-bounded interpreter `run`, which is a total Lean function. Fuel counts steps, and every operation is also charged the size of the value it builds (there's no fixed value cap since M8b). So values, and the work on them, stay bounded by the fuel (`eval_sz_le`).
 - **A small object logic S**, deep-embedded as Lean data, with a fuel-bounded checker `check`.
 - **A Lean proof that S is sound.** If `check` accepts a proof of φ, then ⟦φ⟧ holds, with S's `Check` symbol interpreted as the Lean function `check` itself.
 - **The standard K**, built with `diag` (the diagonal lemma): "I cooperate with an opponent exactly when its certificate checks as a proof that it satisfies K."

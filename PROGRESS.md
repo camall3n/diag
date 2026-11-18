@@ -770,3 +770,38 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   **Scope estimate:** this is the largest milestone so far, several times M3, and it will span several sessions. **Requested decisions:** 1 (A or B), 2 (refactor or skip), and 3 ((i) or (ii)), plus an acknowledgement of the scope.
 
   [REVIEW] awaiting FROM_APP #17
+
+- [M8b-2a done (value cap V removed), Handled FROM_APP #17] **Option (A) from the design fork.** The cap `Params.V` is gone. `spendOp` now charges each operation `c + v.sz`, its extra cost plus *its result's size*, and fails only when out of fuel. `symOp` adds the size bound to its runtime cost bound. The M3 proofs were updated in `Sound/EvalTm`, `Sound/SymOp` and `Sound/SymEval`. `CLAUDE.md`'s description of the DSL now says this. The `Params` refactor is skipped, per the review; the app is moving it to M9 as optional.
+  ```lean
+  def spendOp {n : Nat} (o : Op) (vs : List Val) (m : Fin n) : Option (Val × Fin n) :=
+    let (v, c) := o.applyPure vs
+    if h : c + v.sz ≤ m.val then some (v, ⟨m.val - (c + v.sz), by omega⟩) else none
+  ```
+  **The new invariant as a theorem** (`Diag/Sound/SizeBound.lean`). It's proved by strong induction on fuel over `eval` and `evalList`:
+  ```lean
+  theorem eval_sz_le (p : Program) (B : Nat) (h6 : 6 ≤ B) (hp : p.LitsLe B)
+      (fuel : Nat) (hf : fuel ≤ B) (env : Env) (henv : EnvLe B env) (e : Expr) (he : e.LitsLe B)
+      (v : Val) (r : Fin fuel) (h : eval p fuel env e = some (v, r)) : v.sz ≤ B
+  ```
+  In words: if the fuel, the environment's values and the program's literals are bounded by B ≥ 6, every value `eval` returns is bounded by B. Values can't outgrow the fuel and the inputs, even with sharing. "Work ≤ fuel" in the literal sense isn't modelled as a quantity; this size bound is its substance. `#print axioms Diag.eval_sz_le` gives `[propext, Classical.choice, Quot.sound]`.
+  **Everything re-run.** The clean build has 0 warnings. Every `#print axioms` is unchanged: the standard three, except `necessity` with none and its toy lemmas with `[propext]`. **No verdict changed anywhere**: the M1 examples (`growBot` now runs out of fuel instead of hitting the cap, and still plays D), the acceptance test, the toys and induction toys, the 11×11 and mixed-standard tournaments, exclusivity's `#eval`s, and all 17 M6 attempts. The M6 report has been regenerated.
+  **Fuel, before → after:**
+
+  | Item | Before | After |
+  |---|---|---|
+  | **CertBot `symRun` cost bound** (against T = 1,048,576) | 287,467 | **324,616** |
+  | CertBot, M2 certificate | 156,672 | 160,768 |
+  | CertBot, generated certificate | 101,376 | 106,496 |
+  | HelperBot | 102,400 | 107,520 |
+  | LetBot | 102,400 | 106,496 |
+  | SwapBot | 103,424 | 108,544 |
+  | m01 | 164,858 | 169,231 |
+  | m02 | 161,929 | 166,302 |
+  | m03 | 104,090 | 108,474 |
+  | m04 | 163,317 | 167,690 |
+  | m05 | 162,528 | 166,920 |
+  | m06 | 180,449 | 184,822 |
+  | p01 | 38,773 | 40,405 |
+  | p02 | 76,711 | 78,343 |
+
+  The checker-fuel figures are to 1024 granularity for the first five rows (the M5 tournament) and exact for the M6 runner rows. Next: M8b-2 proper, the `call` term, the one-step unfolding rule, and fuel monotonicity.

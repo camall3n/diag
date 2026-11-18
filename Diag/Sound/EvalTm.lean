@@ -6,7 +6,8 @@ namespace Diag
 
 theorem spendOp_some {n : Nat} {o : Op} {vs : List Val} {m : Fin n} {v : Val} {k : Fin n}
     (h : spendOp o vs m = some (v, k)) :
-    v = (o.applyPure vs).1 ∧ (o.applyPure vs).2 ≤ m.val ∧ k.val = m.val - (o.applyPure vs).2 := by
+    v = (o.applyPure vs).1 ∧ (o.applyPure vs).2 + (o.applyPure vs).1.sz ≤ m.val ∧
+      k.val = m.val - ((o.applyPure vs).2 + (o.applyPure vs).1.sz) := by
   unfold spendOp at h
   split at h
   rename_i v' c' heq
@@ -15,7 +16,7 @@ theorem spendOp_some {n : Nat} {o : Op} {vs : List Val} {m : Fin n} {v : Val} {k
   · rename_i hc
     simp only [Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
-    exact ⟨rfl, hc.1, rfl⟩
+    exact ⟨rfl, hc, rfl⟩
   · contradiction
 
 theorem evalTm_sound : ∀ (n : Nat) (t : Tm) (v : Val) (rest : Fin n),

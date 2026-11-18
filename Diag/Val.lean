@@ -3,8 +3,8 @@
 
 S-expressions with a cached size. `sz` is a `computed_field`: logically it is the
 structural definition below, and at runtime it is stored in every node, so reading
-it is O(1) even for values with heavy sharing. Every value a program builds is kept
-below the global cap `Params.V` (see `Diag/Lang.lean`).
+it is O(1) even for values with heavy sharing. Every operation is charged the size of the
+value it builds (see `spendOp` in `Diag/Check.lean`).
 -/
 
 namespace Diag

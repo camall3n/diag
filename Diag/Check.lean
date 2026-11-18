@@ -29,8 +29,8 @@ denotes. `symEval` runs the DSL on symbolic values: calls are inlined, `let` is
 substituted, an `ite` on a literal condition picks its branch, an `ite` on a symbolic
 condition becomes a term `ite`, and pure operations on literal arguments are computed.
 Alongside the result it computes an upper bound on the **runtime** fuel the real `eval`
-uses. The rule only succeeds if that bound fits the run's fuel and every intermediate
-size bound is ≤ `V`, so the real run can't fail and returns exactly the result term's
+uses, including each operation's result-size charge. The rule only succeeds if that bound
+fits the run's fuel, so the real run can't fail and returns exactly the result term's
 value. (That is the `symEval` correctness lemma, M3.) -/
 
 structure SV where
@@ -86,6 +86,7 @@ def symWork : Op → List SV → Nat
   | _, _ => 0
 
 /-- A symbolic operation application: `((result, extra runtime cost), checker work)`.
+The runtime cost bound includes the result-size charge (`spendOp` charges `c + v.sz`).
 The checker's own work is the operation's cost when it computes a literal result.
 Otherwise it's the work of `opBound` (decoding a literal formula for `subst`). -/
 def symOp (o : Op) (args : List SV) : Option ((SV × Nat) × Nat) :=
@@ -93,12 +94,11 @@ def symOp (o : Op) (args : List SV) : Option ((SV × Nat) × Nat) :=
   | some vs =>
     -- all arguments are literals and the operation is pure: compute it
     let (v, c) := o.applyPure vs
-    if v.sz ≤ V then some ((⟨.lit v, v.sz⟩, c), c) else none
+    some ((⟨.lit v, v.sz⟩, c + v.sz), c + v.sz)
   | none =>
     if args.length = o.arity then
       match opTm o (args.map SV.t), opBound o args, opCost o args with
-      | some t, some b, some c =>
-        if b ≤ V then some ((⟨t, b⟩, c), symWork o args) else none
+      | some t, some b, some c => some ((⟨t, b⟩, c + b), symWork o args)
       | _, _, _ => none
     else none
 
@@ -185,10 +185,12 @@ def symRunCore (fuel : Nat) (f : Nat) (code : Val) (args : List SV) :
         else none
   else none
 
-/-- Pure operation with its cost charged and the size cap enforced. -/
+/-- Pure operation, charged its extra cost plus **the size of its result**. Building a
+value therefore costs fuel in proportion to its size, so values (and the work on them)
+stay bounded by the fuel, even with heavy sharing. This replaced the fixed cap `V` (M8b). -/
 def spendOp {n : Nat} (o : Op) (vs : List Val) (m : Fin n) : Option (Val × Fin n) :=
   let (v, c) := o.applyPure vs
-  if h : c ≤ m.val ∧ v.sz ≤ V then some (v, ⟨m.val - c, by omega⟩) else none
+  if h : c + v.sz ≤ m.val then some (v, ⟨m.val - (c + v.sz), by omega⟩) else none
 
 /-! ## The mutual block -/
 
@@ -197,7 +199,7 @@ abbrev Env := List (String × Val)
 mutual
 
 /-- DSL expression evaluation. It returns the value and the leftover fuel, which is
-strictly less than `fuel`. It fails only by running out of fuel or exceeding the cap `V`. -/
+strictly less than `fuel`. It fails only by running out of fuel. -/
 def eval (p : Program) : (fuel : Nat) → Env → Expr → Option (Val × Fin fuel)
   | 0, _, _ => none
   | n+1, env, .var x => some ((env.lookup x).getD Val.nil, ⟨n, by omega⟩)

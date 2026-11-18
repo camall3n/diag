@@ -5,8 +5,6 @@ Provisional values; the fuel-consistency lemma (M4/M5) will pin down `T`.
 -/
 namespace Diag.Params
 
-/-- Cap on the size of any value a program builds. -/
-def V : Nat := 2 ^ 20
 /-- Cap on the size of an entry's code. -/
 def L : Nat := 2 ^ 14
 /-- Cap on the size of an entry's certificate. -/

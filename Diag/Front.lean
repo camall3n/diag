@@ -289,7 +289,7 @@ partial def diagnose (Γ : List Fm) (p : Proof) : Option String :=
         | none => "?"
       let extra := match p with
         | .hyp i => s!" (no hypothesis #{i})"
-        | .symRun f _ _ _ => s!" (symbolic run of the code failed: unsupported shape, recursion on symbolic data, a size bound above V, or cost bound > {f})"
+        | .symRun f _ _ _ => s!" (symbolic run of the code failed: unsupported shape, recursion on symbolic data, or cost bound > {f})"
         | .eval _ _ | .evalNe _ _ => " (terms not closed, evaluation failed, or the values don't match the rule)"
         | _ => ""
       some s!"rule `{ruleName p}` rejected{extra}; premises prove: [{"; ".intercalate prem}]"

@@ -20,7 +20,8 @@ def cooperateBot : Entry := bot C
 def loopBot : Entry := bot (call "loop" []) [("loop", [], call "loop" [])]
 
 /-- Tries to build a huge value by repeated doubling, `grow(x) = grow(pair(x, x))`.
-Hits the size cap `V` after about 20 steps instead of using exponential memory or time. -/
+Each doubling is charged the new value's size, so it runs out of fuel after about 20 steps
+instead of using exponential memory or time. -/
 def growBot : Entry :=
   bot (call "grow" [lit (.nat 0)])
     [("grow", ["x"], call "grow" [op .pair [var "x", var "x"]])]
