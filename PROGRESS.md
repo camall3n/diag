@@ -805,3 +805,23 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   | p02 | 76,711 | 78,343 |
 
   The checker-fuel figures are to 1024 granularity for the first five rows (the M5 tournament) and exact for the M6 runner rows. Next: M8b-2 proper, the `call` term, the one-step unfolding rule, and fuel monotonicity.
+
+- [M8b-2 sizing: a second design fork] Before building the `call` term, I worked through the S-proof that `hShort` needs, step by step. Concretely:
+  - **The lemma.** Let B_φ = `search(φ, 2ⁿ−1)`, where `search(φ, k) = if sat(φ, k) then C else if k = 0 then D else search(φ, k−1)`. The general lemma is
+    `L :≡ ∀φ ∀k ∀j. isNat k → j ≤ k → sat(φ, j) = true → call(g(φ, k), search, [φ, k]) succeeds with C`,
+    proved once in S by `natInd` on k. Per φ, the certificate is then: L instantiated with the witness j, plus `eval(sat(φ, j)) = true` (polynomial), plus a bound g(φ, 2ⁿ−1) ≤ T_φ.
+  - **What L's proof needs** besides `natInd` and the `call` term:
+    1. **Arithmetic identities on symbolic naturals.** The step x ↦ x+1 needs `minus(plus(x, 1), 1) = x`, and the case split needs `j ≤ k ∧ j ≠ k → j ≤ k − 1`. S has no rule for any of this; `eval` only handles *closed* terms.
+    2. **Symbolic fuel bounds with multiplication.** Each unfolding of `search` costs about c·sz(φ) + d, so `g(φ, k)` ≈ (k+1)·(c·sz(φ) + d). That's a product of two variables. Writing g as a recursive DSL function avoids the product, but then evaluating g(φ, 2ⁿ−1) costs 2ⁿ, which defeats the purpose. So it needs either a `times` operation with ring identities, or a closed form plus induction plus distributivity.
+    3. **Unfolding with symbolic budgets.** Today `symEval`'s cost bounds are concrete numbers derived from concrete size bounds. Inside L, the sizes (sz φ, the bits of k) are variables, so the unfolding rule's cost bound must be a **term**, with an arithmetic side condition "budget + cost ≤ f". That's a new evaluator, or a generalization of `symEval`, together with its soundness proof.
+  - **Proposal for (1)+(2): one trusted `arith` rule.** It closes `t = u` and `lt(t, u) = true` whenever a Lean decision procedure accepts them. The procedure normalizes `plus`, `minus` (truncated, with side conditions), `times`-by-polynomial, and `sz` atoms into polynomials over atoms, then compares. Its soundness would be a Lean theorem: the normal form evaluates to the same value. That's a rule, not an axiom, and #17 allows one. It's also a sizable verified component, perhaps 300–600 lines, and it puts polynomial-normalization correctness into the trusted base, behind a proof. (Plus a `times` operation in the DSL and in `Op`.)
+  - **The `hShort` side ⚑, under #17's no-compiled-facts rule.** L's S-proof will be large: by my estimate a few hundred nodes, with formulas mentioning the search code literal. Stepping `infer` through it by rewriting (option (i)) is impractical at that size. So I'd pick **(ii): kernel-reducible definitions.** I'd redefine `eval`/`check`/`infer`/`evalTm` with a second, structurally decreasing *depth* argument d (each call consumes at least one step, so d := fuel loses nothing), prove them equal to the current ones, and then `decide` the closed part. **Risk:** the kernel then has to unfold about 10⁵ interpreter steps over large literals. That might take minutes or might be infeasible; I'd measure on the CertBot certificate first. If it works, it also fixes audit item 2 (CertBot's (C, C) kernel-checked).
+  - **Revised scope.** M8b-2 grows to: `arith` with its soundness, a `times` op, `call` (a wrapped success/value result), fuel monotonicity, an unfolding rule with term-valued budgets and its soundness, and kernel-reducible twins with an equivalence proof. M8b-3 is then: the B_φ program and its Lean verification (`hB`, with an exponential fuel function), L's S-proof, and the parametric `hShort` with explicit polynomials p and q. **That's well beyond M3 in size; realistically many sessions.**
+  - **Options:**
+    - **(α)** Proceed with all of it, in the order arith → `call`/unfolding/monotonicity → twins (measured early) → B_φ → L → `hShort`/`hB`.
+    - **(β)** Do the kernel-reducible twins *first* as a standalone item. It's independently valuable (audit item 2), it de-risks the feasibility question, and α can be decided after.
+    - **(γ)** Keep M8 abstract. State in the paper that (i) and (ii) hold for PA by standard arguments, and leave S-instantiation as future work.
+
+    **I recommend (β), then decide.**
+
+  [REVIEW] awaiting FROM_APP #18
