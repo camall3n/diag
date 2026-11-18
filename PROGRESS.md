@@ -126,3 +126,75 @@ Claude Code appends here after every meaningful step. The Claude app session rea
   3. **Not yet a git repository.** I've added a `.gitignore` for `.lake/`. Next: M2, after rereading `FROM_APP.md` (S's syntax with de Bruijn binders as suggested, proof objects, and the checker defined together with `run`).
 
 - [git] The user set up the repo (origin `github.com/camall3n/diag`). M1 is committed as the first commit on `main`. It isn't pushed yet. The `lake init` template included `.github/workflows/lean_action_ci.yml`, which builds the project on every push.
+
+- [M2 plan] **Proposed design for S's syntax, proofs and checker, for review. No code yet; the Lean is a draft that hasn't been compiled.** I checked `FROM_APP.md`: there are no items after #3. Decision points are flagged ⚑. The guiding aim is to keep M3's soundness proof small, so wherever possible a rule's soundness should be a single lemma about the Lean function it calls.
+
+  **⚑0. A change to M1 first: make DSL operations total.** Today `fst(atom)`, `plus(sym, …)`, an unbound variable and so on all return `none`. I propose giving them default results instead (`fst`/`snd` of an atom gives `nil`, arithmetic treats non-numbers as 0, an unbound variable or unknown function gives `nil`, `check` with a non-number fuel gives `false`, and `subst` on something that doesn't decode gives `nil`). After this, a program can fail **only by running out of fuel or exceeding the size cap V**. The benefit: S's terms can have *total* `Val` semantics, so equational reasoning needs no "is this term defined?" side conditions. Those side conditions would otherwise appear in every `ite`/`let` rule and in the symbolic-run proof. The two remaining failure modes are exactly what the symbolic-run rule bounds statically (⚑5).
+
+  **⚑1. Terms and formulas, with de Bruijn indices (as FROM_APP #3 suggested).** Function symbols reuse the DSL's `Op`, so `check` and `subst` in formulas *are* the DSL primitives. `run` is added, with `none` mapped to the atom `⊥`.
+  ```lean
+  inductive Tm where
+    | bvar : Nat → Tm
+    | lit  : Val → Tm
+    | app  : Op → List Tm → Tm            -- eq, pair, fst, …, check, subst, sz
+    | ite  : Tm → Tm → Tm → Tm            -- `then` iff the condition is `true`
+    | run  : Tm → Tm → List Tm → Tm       -- run(fuel, code, args)
+  inductive Fm where
+    | eq  : Tm → Tm → Fm
+    | fls : Fm
+    | imp : Fm → Fm → Fm
+    | and : Fm → Fm → Fm
+    | all : Fm → Fm                       -- binds bvar 0
+  ```
+  ¬, ↔ and bounded ∀ are derived. Instantiation `Fm.inst φ t` replaces the loose `bvar 0`. `subst(φ, v)` only ever substitutes a *closed literal*, so it is capture-free by construction. Tm, Fm and Proof all have `quote`/`decode?` with round-trip lemmas, as in M1. A certificate is a quoted `Proof`.
+
+  **⚑2. Semantics, which M3 will use.** `Tm.denote (ρ : Nat → Val) : Tm → Val` is structural. `run` denotes `(run f c args).getD ⊥`, and `check` denotes the Lean `check`, the very function. `Fm.denote ρ : Fm → Prop` sends ∀ to a Lean ∀ over `Val`. No fuel appears here, since every function called is already total.
+
+  **⚑3. Proofs: natural-deduction proof terms, with the conclusion inferred.** The checker computes each proof's conclusion bottom-up and doesn't search, and `check f p φ` holds iff the inferred conclusion of `p` in the empty context is φ. Classical logic is via double-negation elimination; it's sound because the semantics is in classical Lean.
+  ```lean
+  inductive Proof where
+    | hyp    : Nat → Proof                       -- i-th hypothesis
+    | impI   : Fm → Proof → Proof                -- assume a, prove b ⊢ a → b
+    | impE   : Proof → Proof → Proof
+    | andI   : Proof → Proof → Proof
+    | andL   : Proof → Proof
+    | andR   : Proof → Proof
+    | exfalso : Fm → Proof → Proof
+    | dne    : Proof → Proof                     -- ¬¬φ ⊢ φ
+    | allI   : Proof → Proof                     -- under shifted hypotheses
+    | allE   : Proof → Tm → Proof                -- ∀φ ⊢ φ[t/0]
+    | refl   : Tm → Proof
+    | rw     : Fm → Proof → Proof → Proof        -- t = u, motive[t/0] ⊢ motive[u/0]
+    | iteT   : Tm → Tm → Proof → Proof           -- c = true ⊢ ite(c,t,e) = t
+    | iteF   : Tm → Tm → Proof → Proof           -- c = true → ⊥ ⊢ ite(c,t,e) = e
+    | eval   : Tm → Tm → Proof                   -- closed t, u that evaluate equal ⊢ t = u
+    | evalNe : Tm → Tm → Proof                   -- closed t, u that evaluate different ⊢ t = u → ⊥
+    | symRun : Tm → Val → List Tm → List Nat → List Proof → Proof   -- ⚑5
+  ```
+  **There is no reflection rule.** `eval` can prove the *equation* `check(f, p, φ) = true`, which is a true fact about a Lean function. Nothing turns that equation into φ. That is the Löb guard.
+
+  **⚑4. One mutual definition, with one fuel.** `eval`/`evalList` (the DSL), `run`, `infer` (the proof checker), `evalTm` (the fueled evaluator for closed terms used by `eval`/`evalNe`) and `symEval` (⚑5) form a single well-founded block over one fuel. Fuel is threaded through as in M1, so `check f` uses at most f steps. The DSL primitive `check(p, φ, f)` charges a flat f. Formula comparisons and instantiation are charged by size. This removes the M1 SCAFFOLD stubs.
+  ```lean
+  def check (fuel : Nat) (p φ : Val) : Bool   -- decodes p and φ, then infer
+  ```
+
+  **⚑5. The symbolic-run rule: the checker partially evaluates the code.** `symRun f code args bounds hyps` concludes `run(f, code, args) = e`.
+  - The code is a literal and f is a literal number.
+  - The args are any terms, typically bound variables.
+  - Each arg comes with a literal size bound B_i, and a hypothesis proof of `lt(sz(arg_i), B_i + 1) = true`.
+
+  The checker's `symEval` runs the DSL on symbolic values, which are terms:
+  - **calls** are inlined;
+  - **`let`** is substituted;
+  - **`ite` on a symbolic condition** becomes a term `ite`;
+  - **operations on symbolic values** become term `app`s.
+
+  At the same time it computes a **concrete upper bound** on the fuel used and on every intermediate size, using the B_i, interval-style. The rule succeeds only if fuel used ≤ f and every size is ≤ V. Then `run` can't fail, and by ⚑0 its result is exactly `e`. This needs no arithmetic in S. M3's lemma is: if `symEval` succeeds, then for every ρ satisfying the bounds, `run f code (args.map denote) = some (denote e)`.
+  - **Limitation:** recursion on *symbolic* data can't be unfolded (S has no induction), so the rule fails on such code. Members may still recurse on concrete data and use helpers, refactors and any control flow over finitely many symbolic branches. It's enough for CertBot and for structural variety in M6. Induction could be added later if needed.
+  - **A cost to watch:** substituting `let` duplicates terms, so a chain of lets that each use their variable twice blows up. That's bounded by the checker's fuel. Alternative: a `let` binder in `Tm`, which adds one binder case to M3.
+
+  **⚑6. Preview of K for M4 (unchanged from the design note).**
+  `K(z) := ∀y ∀κ, lt(sz y, L+1) = true → lt(sz κ, Kmax+1) = true → (run(T, z, [y, κ]) = C ↔ check(F, κ, subst(⌜K⌝, y)) = true)`.
+  With ⚑0, CertBot's certificate is about 5 steps: `allI`, `allI`, `impI`, `impI`, `symRun` (which gives `run(…) = ite(check(…) = true, C, D)`), then `iteT`/`iteF` with `evalNe` (C ≠ D) for the two directions. ⌜K⌝ is built with `diag` in M4.
+
+  **M2 deliverable:** the files `Diag/Syntax.lean` (Tm, Fm, Proof, encodings and round trips) and `Diag/Check.lean` (the mutual block, which replaces the M1 stubs), plus toy proofs that check: propositional tautologies, ∀-instantiation, `eval` on closed arithmetic and on `run(DefectBot) = D`, a `symRun` on CooperateBot, and some rejected forgeries. Soundness is M3.
