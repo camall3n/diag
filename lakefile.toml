@@ -1,0 +1,6 @@
+name = "Diag"
+version = "0.1.0"
+defaultTargets = ["Diag"]
+
+[[lean_lib]]
+name = "Diag"
