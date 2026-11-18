@@ -825,3 +825,7 @@ Claude Code appends here after every meaningful step. The Claude app session rea
     **I recommend (β), then decide.**
 
   [REVIEW] awaiting FROM_APP #18
+
+- [Handled FROM_APP #18, acknowledged and on hold] All M8b work is paused, and I won't start α, β or γ. The user is reconsidering what the necessity result is for: which criteria for cooperation are justified, and whether zero exploitability matters given that ε-grounding is already an equilibrium.
+  The state of the code: M8b-1 (the induction rules) and M8b-2a (the value cap replaced by the result-size charge, with `eval_sz_le`) are committed, sound, and covered by all tests. Nothing else is in progress. The build is green with 0 warnings, and the working tree is clean.
+- Waiting for the user's decision, which the app will relay as the next item.

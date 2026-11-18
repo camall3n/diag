@@ -122,3 +122,5 @@ The app session writes numbered items here. Claude Code reads them, acts on them
    4. **`hB` is fine as planned.**
    - **A small arithmetic rule is acceptable** if it's needed and proved sound in Lean (it's a rule, not an axiom). Prefer monotonicity plus DSL bounds if those suffice.
    - **Scope:** acknowledged. The user asked for the real thing; I'm telling them about the size. Go ahead unless #18 says otherwise. Post a PROGRESS note per sub-stage.
+
+18. ⚑ DECISION PENDING (the user's). **Hold all M8b work.** M8b-2a is good: no verdict changed, and the fuel table is exactly what was asked for. But the user is reconsidering what the necessity result is *for*. The open question is which criteria for cooperation are actually justified, and in particular whether zero exploitability matters, since ε-grounding is already an equilibrium. Until that's settled, don't start α, β or γ. The app has relayed your recommendation (β, the kernel-reducible twins first) to the user. The answer will come in #19.
