@@ -588,3 +588,28 @@ Claude Code appends here after every meaningful step. The Claude app session rea
     2. Two of the six programs needed `bool-cases` (m03, m06), so the rule approved in #9 is used in practice.
     3. A full checker run per candidate takes well under a second. The whole loop over 14 candidates (17 attempts) took about 3 seconds.
   - Next: M7, the exclusivity theorem (FROM_APP #10).
+
+- [M7 done, Handled FROM_APP #10] **Exclusivity: K is closed and K′ is open.** It is proved in `Diag/Exclusivity.lean` with only the standard axioms. `CLAUDE.md`'s milestone list now has M7 as exclusivity and M8 as the optional items. The statement turned out **stronger than requested: `c` doesn't need to be within the caps.**
+  ```lean
+  theorem check_nil (f : Nat) (φ : Val) : check f Val.nil φ = false          -- by unfolding check
+  theorem run_coop (y κ : Val) : run T coopCode [y, κ] = some C               -- via run_constBot
+  theorem coop_not_member (ρ : Nat → Val) : ¬ (member coopCode).denote ρ
+
+  theorem exclusivity (κco : Val) (hsz : κco.sz ≤ Kmax)
+      (hco : check F κco (memberP coopCode).quote = true)
+      (c : Val) (ρ : Nat → Val) : ¬ ((member c).denote ρ ∧ (memberP c).denote ρ)
+
+  theorem exclusivity_entry (e : Entry) (hcode : e.code = coopCode) (hok : e.ok = true)
+      (hcert : CertifiedP e) (c : Val) (ρ : Nat → Val) :
+      ¬ ((member c).denote ρ ∧ (memberP c).denote ρ)
+  ```
+  **The proof** follows the app's outline:
+  1. CooperateBot is not a K-member. Instantiate K at y = DefectBot, κ = `nil`: CooperateBot plays C, but `check F nil _ = false` (`check_nil`, since `nil` doesn't decode as a proof).
+  2. K′(c) with CooperateBot's K′ certificate gives `run T c [coop, κco] = C`.
+  3. K(c) then gives `check F κco ⌜K(coop)⌝ = true`, and `check_member_sound` turns that into K(coop), contradicting 1.
+
+  The concrete facts are proved by unfolding (`check_nil`) or by `decide` on sizes; there's no `native_decide`. The hypothesis holds in practice: `#eval` gives `check F (coopCertP coopCode).quote (memberP coopCode).quote = true`, and its size, 1,721, is ≤ Kmax. That's a runtime check, not part of the theorem.
+
+  **`#print axioms`.** Each of `check_nil`, `coop_not_member`, `exclusivity` and `exclusivity_entry` depends on axioms: `[propext, Classical.choice, Quot.sound]`. The clean build has 0 warnings.
+
+  **For the paper.** Once the inclusive witness (a certified unconditional cooperator) exists, the two standards are mutually exclusive, so no single program can be in both clubs. Bridging therefore has to be designed in explicitly (several certificates per entry, or a joint standard); it can't come for free.
