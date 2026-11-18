@@ -19,14 +19,18 @@ unexploitable agent can exist (see the toy instance below), so the theorem is ab
 *cost*, not impossibility.
 
 **Caveats.**
-1. *Instantiating (ii), `hShort`, needs a proof system with induction*: the short proof is
-   a general lemma "if some assignment satisfies φ, the search returns C", proved once, plus
-   the witness and its check. **Our object logic S has no induction.** In S, the only
-   proofs that B_φ cooperates go through `eval`/`symRun`, which cost about as much as the
-   search itself. So the concrete instance is PA-style (Critch's setting, where opponents
-   may run long), not our S. Our standards K and K′ sidestep the theorem: they demand an
-   S-certificate of one specific statement, not cooperation with every opponent that has
-   a short proof.
+1. *Fairness is relative to a proof system P* (`Short` = "a short P-proof exists"). The
+   theorem holds for any P satisfying (ii), `hShort`. That includes PA and every system that
+   efficiently simulates PA: a stronger system is a stronger demand, because if P′
+   efficiently simulates P, then P′-fair ⇒ P-fair. In PA, (ii) holds via a general lemma
+   ("if some assignment satisfies φ, the search returns C"), proved once by induction, plus
+   the witness and its check. **Whether (ii) holds for our object logic S is open.** We don't
+   know that short S-proofs of "B_φ cooperates" are missing. We only know that the obvious
+   routes in S (`eval`/`symRun`) cost about as much as the search itself, and ruling out
+   short S-proofs would be a proof-complexity lower bound we don't have. Our standards K and
+   K′ are not "fair" in this sense, whatever the proof system: they demand a certificate of
+   one specific statement, not cooperation with every opponent that has a short proof of
+   cooperating.
 2. *The hard opponents are slow*: B_φ runs an exhaustive search. The theorem concerns
    the agent's cost of deciding its move against them.
 -/

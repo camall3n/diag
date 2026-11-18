@@ -677,3 +677,48 @@ Claude Code appends here after every meaningful step. The Claude app session rea
     - caveat 1: instantiating (ii) needs induction, which S lacks, so the concrete instance is PA/Critch-style and not our S (and K/K′ sidestep the theorem, because they ask for an S-certificate of a specific statement);
     - caveat 2: the hard opponents B_φ are slow.
   - **On the hooks** (the user asked why they weren't firing). They work. The `[REVIEW] awaiting FROM_APP #13` entry was committed at 19:42:38, and the stop hook waited its full `APP_REVIEW_WAIT` of 600 s. #13 arrived at 19:54:42, about 12 minutes later, after the wait had ended. I suggested raising the wait to 30 minutes; I haven't changed it without the user's go-ahead.
+
+- [Correction to M8 caveat 1, Handled FROM_APP #14] The docstring in `Diag/Necessity.lean` now says: **fairness is relative to a proof system P.** The theorem holds for any P satisfying (ii). That includes PA and every system that efficiently simulates PA: a stronger system is a stronger demand, since if P′ simulates P, then P′-fair ⇒ P-fair. **Whether (ii) holds for S is open.** We don't know that short S-proofs of "B_φ cooperates" are missing; we only know that our obvious routes in S (`eval`/`symRun`) are exponential, and ruling out short proofs would be a proof-complexity lower bound we don't have. K/K′ are not fair in this sense, whatever the system. **This replaces my earlier wording** ("the concrete instance is PA-style, not our S"), which overclaimed. The stop-hook wait stays at 600 s, per the user.
+
+- [M8b plan: induction in S, for review] **The goal is to instantiate `Setting` concretely in S.** Working through it, I found that the induction rule itself is the *small* part. Proving "B_φ's search returns C" inside S also needs a way to reason about *individual recursive calls on symbolic data*, which S currently can't do: `symRun` only unfolds code whose recursion is on concrete data. Here is the full picture, with the decisions ⚑ for you and the app.
+
+  **1. Which induction ⚑.** I propose two rules, both sound by ordinary Lean induction:
+  - **Structural induction over `Val`**, which covers lists (assignments, clause lists) and trees:
+    `valInd φ p_atom p_pair`: from `p_atom ⊢ ∀x. isPair(x) = false → φ(x)` and
+    `p_pair ⊢ ∀x. isPair(x) = true → φ(fst x) → φ(snd x) → φ(x)`, infer `∀x. φ(x)`.
+    (Its soundness uses the fact that `fst` and `snd` of a pair are its components, so recursion on `Val` is well-founded.)
+  - **Induction over naturals**, relativized, because ∀ ranges over all `Val`:
+    `natInd φ p0 pS`: from `p0 ⊢ φ(0)` and `pS ⊢ ∀x. isNat(x) = true → φ(x) → φ(plus(x, 1))`, infer `∀x. isNat(x) = true → φ(x)`.
+    It's useful for fuel and counter bounds.
+
+  Neither rule mentions `check`, so the no-reflection argument is unchanged: `infer_sound` still never needs `check_sound`.
+
+  **2. How it fits the certificate format.** Two new `Proof` constructors, `valInd` and `natInd` (each carrying the motive φ with the hole at variable 0, like `rw`), plus their encodings. They get their own cases in `infer` and `infer_sound`.
+  - **Existing certificates are unaffected:** old tags decode exactly as before, and no existing rule changes.
+  - I'll re-run every `#print axioms` and every existing test and tournament, and paste the results.
+  - One caution: adding constructors to `Proof` touches every `cases pr` in the soundness proof, so those get new cases, but nothing existing is rewritten.
+
+  **3. What instantiating `Setting` also needs, which is the bulk of the work ⚑.**
+  1. **A term for calling a single function.** For example, `call(fuel, code, f, args)`, meaning `eval` of function `f` of `code` (the same `eval`, so it's still one interpreter). Today `run(…)` only names whole programs, so a lemma like "∀l. search(φ, l) = C if l contains a satisfying assignment" can't even be *stated* about a helper function.
+  2. **A one-step unfolding rule.** It would unfold one call symbolically, leaving the recursive calls as `call` terms. Its soundness is a lemma about `eval`, in the style of `symEval_sound`. Its hard part is fuel: the fuel left for an inner call depends on data sizes, because `eq` and `subst` are charged by size.
+  3. **Fuel reasoning.** Either:
+     - (a) a proved **fuel-monotonicity** lemma about `eval` (more fuel never changes a successful result), exposed as a rule; together with fuel bounds written as DSL functions, the identities then come from unfolding and need no arithmetic axioms; or
+     - (b) a small sound linear-arithmetic rule.
+
+     I recommend (a). It is one more meta-theorem, but it keeps arithmetic out of the trusted core.
+
+  My estimate is that items 1–3 are comparable to, or larger than, M3. Monotonicity and unfolding both need induction over the mutual `eval`/`check` block.
+
+  **4. Fixed caps ⚑.** The game has fixed T, F, L and Kmax. B_φ's search takes about 2^n steps on n variables, so with a fixed T, (i) `hB` fails for large φ: B_φ runs out of fuel and plays D even when φ is satisfiable. A concrete `Setting` in our game can therefore only cover a *finite* family (formulas whose search fits in T, with proofs that fit in F and Kmax). That still shows that the hypotheses are met *in S*. In particular, the general lemma would be one fixed proof, so the per-φ certificate is the witness plus a constant. But it says nothing asymptotic. The alternative is to make `Params` (T, F, L, Kmax) parameters of the whole development; that's a refactor across Standard, Theorems and Tournament.
+
+  **My recommendation:** do it in stages.
+  - **(M8b-1)** The two induction rules, their soundness, and a demo: an S-proof of a general lemma about a *closed* recursive function. That's possible today via `eval` instances, but the demo would show the induction step.
+  - **(M8b-2)** The `call` term, the unfolding rule, and fuel monotonicity.
+  - **(M8b-3)** The concrete `Setting` instance for the finite family, keeping `Params` fixed, with the asymptotic version left as on-paper reasoning.
+
+  **Questions:**
+  1. Do you approve both induction rules?
+  2. Do you approve the staging, and fuel option (a)?
+  3. Is a finite family acceptable for M8b-3, or should I refactor `Params` into parameters first?
+
+  [REVIEW] awaiting FROM_APP #15
